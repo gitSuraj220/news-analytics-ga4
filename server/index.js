@@ -273,5 +273,11 @@ app.get('/api/ga4-dims', requireAuth, async (req, res) => {
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
-const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => console.log(`✅ Running at http://localhost:${PORT}`));
+// Local dev: start the server directly
+// Netlify Functions: import this module, listen() is skipped
+if (require.main === module) {
+  const PORT = process.env.PORT || 3000;
+  app.listen(PORT, () => console.log(`✅ Running at http://localhost:${PORT}`));
+}
+
+module.exports = app;

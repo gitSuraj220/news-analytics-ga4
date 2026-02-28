@@ -1,0 +1,24 @@
+[build]
+  command   = "npm install"
+  publish   = "public"
+  functions = "netlify/functions"
+
+[functions]
+  node_bundler = "esbuild"
+
+# Route all API and auth requests through the serverless function
+[[redirects]]
+  from   = "/api/*"
+  to     = "/.netlify/functions/api"
+  status = 200
+
+[[redirects]]
+  from   = "/auth/*"
+  to     = "/.netlify/functions/api"
+  status = 200
+
+# Fallback: serve index.html for everything else (SPA)
+[[redirects]]
+  from   = "/*"
+  to     = "/index.html"
+  status = 200
