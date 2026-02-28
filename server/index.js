@@ -8,6 +8,7 @@ const NodeCache = require('node-cache');
 const path = require('path');
 
 const app = express();
+app.set('trust proxy', 1); // trust Vercel/Netlify reverse proxy for secure cookies
 const cache = new NodeCache({ stdTTL: 30 });
 
 // cookie-session: stores session in a signed cookie — works in Vercel serverless (no server-side store needed)
