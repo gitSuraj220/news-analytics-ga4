@@ -1,0 +1,496 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>NewsAnalytics — Live Dashboard</title>
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=IBM+Plex+Mono:wght@400;600&family=IBM+Plex+Sans:wght@300;400;600;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #0a0a0b; --surface: #111114; --surface2: #1a1a1f; --border: #2a2a32;
+    --accent: #ff3b3b; --accent2: #ffb800; --accent3: #00d4aa;
+    --text: #e8e8ec; --muted: #6b6b7a; --online: #00ff88;
+  }
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background: var(--bg); color: var(--text); font-family: 'IBM Plex Sans', sans-serif; min-height: 100vh; overflow-x: hidden; }
+  body::before {
+    content: ''; position: fixed; inset: 0;
+    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.03'/%3E%3C/svg%3E");
+    pointer-events: none; z-index: 1000; opacity: 0.4;
+  }
+
+  header {
+    border-bottom: 1px solid var(--border); padding: 0 2rem;
+    display: flex; align-items: center; justify-content: space-between; height: 56px;
+    position: sticky; top: 0; z-index: 100;
+    background: rgba(10,10,11,0.92); backdrop-filter: blur(12px);
+  }
+  .logo { font-family: 'Bebas Neue', sans-serif; font-size: 1.6rem; letter-spacing: 3px; color: var(--accent); }
+  .logo span { color: var(--text); }
+  .header-right { display: flex; align-items: center; gap: 1.5rem; }
+  .live-badge {
+    display: flex; align-items: center; gap: 8px;
+    font-family: 'IBM Plex Mono', monospace; font-size: 0.7rem;
+    letter-spacing: 2px; color: var(--online); text-transform: uppercase;
+  }
+  .live-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--online); animation: pulse 1.5s ease infinite; }
+  @keyframes pulse { 0%,100%{opacity:1;transform:scale(1)} 50%{opacity:.4;transform:scale(.7)} }
+  .user-info { display: flex; align-items: center; gap: 10px; }
+  .user-avatar { width: 30px; height: 30px; border-radius: 50%; border: 1px solid var(--border); }
+  .user-name { font-size: 0.8rem; color: var(--muted); }
+  .logout-btn {
+    font-family: 'IBM Plex Mono', monospace; font-size: 0.65rem;
+    letter-spacing: 1px; padding: 5px 12px; border-radius: 6px;
+    border: 1px solid var(--border); background: transparent; color: var(--muted);
+    cursor: pointer; text-decoration: none; transition: border-color 0.2s, color 0.2s;
+  }
+  .logout-btn:hover { border-color: var(--accent); color: var(--accent); }
+  .header-time { font-family: 'IBM Plex Mono', monospace; font-size: 0.75rem; color: var(--muted); }
+
+  main { padding: 2rem; max-width: 1400px; margin: 0 auto; }
+
+  /* Loading skeleton */
+  .skeleton { background: linear-gradient(90deg, var(--surface2) 25%, var(--border) 50%, var(--surface2) 75%); background-size: 200% 100%; animation: shimmer 1.5s infinite; border-radius: 6px; }
+  @keyframes shimmer { 0%{background-position:200% 0} 100%{background-position:-200% 0} }
+
+  /* Error banner */
+  .api-error {
+    background: rgba(255,59,59,0.08); border: 1px solid rgba(255,59,59,0.25);
+    border-radius: 10px; padding: 12px 20px; margin-bottom: 1.5rem;
+    font-family: 'IBM Plex Mono', monospace; font-size: 0.75rem; color: var(--accent);
+    letter-spacing: 1px; display: none;
+  }
+
+  /* Real-time Banner */
+  .realtime-banner {
+    background: linear-gradient(135deg, #1a0505 0%, #150808 50%, #0f0f12 100%);
+    border: 1px solid #3a1515; border-radius: 16px;
+    padding: 2rem 2.5rem; margin-bottom: 2.5rem;
+    display: flex; align-items: center; justify-content: space-between;
+    flex-wrap: wrap; gap: 2rem; position: relative; overflow: hidden;
+  }
+  .realtime-banner::after {
+    content: ''; position: absolute; right: -40px; top: -40px;
+    width: 200px; height: 200px;
+    background: radial-gradient(circle, rgba(255,59,59,0.12) 0%, transparent 70%);
+    pointer-events: none;
+  }
+  .rt-label { font-family: 'IBM Plex Mono', monospace; font-size: 0.7rem; letter-spacing: 3px; color: var(--accent); text-transform: uppercase; margin-bottom: 0.5rem; }
+  .rt-count { font-family: 'Bebas Neue', sans-serif; font-size: 5rem; line-height: 1; color: var(--text); letter-spacing: 2px; }
+  .rt-count span { color: var(--accent); }
+  .rt-sub { font-size: 0.85rem; color: var(--muted); margin-top: 4px; }
+  .rt-stats { display: flex; gap: 2.5rem; flex-wrap: wrap; }
+  .rt-stat { text-align: center; }
+  .rt-stat-val { font-family: 'Bebas Neue', sans-serif; font-size: 2rem; letter-spacing: 1px; }
+  .rt-stat-val.green { color: var(--accent3); }
+  .rt-stat-val.yellow { color: var(--accent2); }
+  .rt-stat-lbl { font-size: 0.72rem; color: var(--muted); letter-spacing: 1px; font-family: 'IBM Plex Mono', monospace; text-transform: uppercase; }
+  .sparkline-wrap { flex: 1; min-width: 220px; }
+  .sparkline-label { font-family: 'IBM Plex Mono', monospace; font-size: 0.65rem; color: var(--muted); letter-spacing: 2px; margin-bottom: 8px; }
+  canvas#spark { width: 100%; height: 60px; }
+
+  /* Section headers */
+  .sec-hd { display: flex; align-items: baseline; gap: 1rem; margin-bottom: 1.5rem; }
+  .sec-hd h2 { font-family: 'Bebas Neue', sans-serif; font-size: 1.8rem; letter-spacing: 2px; }
+  .tag { font-family: 'IBM Plex Mono', monospace; font-size: 0.65rem; letter-spacing: 2px; padding: 3px 10px; border-radius: 100px; text-transform: uppercase; }
+  .tag-red { background: rgba(255,59,59,0.15); color: var(--accent); border: 1px solid rgba(255,59,59,0.3); }
+  .tag-teal { background: rgba(0,212,170,0.12); color: var(--accent3); border: 1px solid rgba(0,212,170,0.25); }
+  .tag-yellow { background: rgba(255,184,0,0.12); color: var(--accent2); border: 1px solid rgba(255,184,0,0.25); }
+  .last-updated { margin-left: auto; font-family: 'IBM Plex Mono', monospace; font-size: 0.65rem; color: var(--muted); }
+
+  /* News Table */
+  .news-table { background: var(--surface); border: 1px solid var(--border); border-radius: 16px; overflow: hidden; margin-bottom: 2.5rem; }
+  .news-table table { width: 100%; border-collapse: collapse; }
+  .news-table thead th {
+    background: var(--surface2); font-family: 'IBM Plex Mono', monospace; font-size: 0.65rem;
+    letter-spacing: 2px; text-transform: uppercase; color: var(--muted);
+    padding: 14px 20px; text-align: left; border-bottom: 1px solid var(--border);
+  }
+  .news-table tbody tr { border-bottom: 1px solid rgba(42,42,50,0.6); transition: background 0.2s; }
+  .news-table tbody tr:hover { background: var(--surface2); }
+  .news-table tbody tr:last-child { border-bottom: none; }
+  .news-table td { padding: 14px 20px; font-size: 0.88rem; }
+  .rank-num { font-family: 'Bebas Neue', sans-serif; font-size: 1.4rem; color: var(--muted); width: 40px; }
+  .rank-1 .rank-num { color: var(--accent); }
+  .rank-2 .rank-num { color: var(--accent2); }
+  .rank-3 .rank-num { color: var(--accent3); }
+  .news-title { font-weight: 600; color: var(--text); max-width: 420px; line-height: 1.4; }
+  .news-path { font-family: 'IBM Plex Mono', monospace; font-size: 0.65rem; color: var(--muted); margin-top: 2px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 420px; }
+  .news-cat { font-family: 'IBM Plex Mono', monospace; font-size: 0.65rem; letter-spacing: 1px; padding: 3px 8px; border-radius: 4px; background: rgba(255,59,59,0.1); color: var(--accent); border: 1px solid rgba(255,59,59,0.2); white-space: nowrap; }
+  .views-cell { font-family: 'IBM Plex Mono', monospace; font-size: 0.85rem; white-space: nowrap; }
+  .views-cell span { color: var(--muted); font-size: 0.7rem; }
+  .bar-wrap { width: 100px; height: 4px; background: var(--border); border-radius: 2px; overflow: hidden; margin-top: 4px; }
+  .bar-fill { height: 100%; border-radius: 2px; background: linear-gradient(90deg, var(--accent) 0%, #ff7a7a 100%); }
+
+  /* State Grid */
+  .state-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1.5rem; margin-bottom: 2.5rem; }
+  .state-col { background: var(--surface); border: 1px solid var(--border); border-radius: 16px; overflow: hidden; }
+  .state-header { padding: 1.2rem 1.5rem; border-bottom: 1px solid var(--border); display: flex; align-items: center; justify-content: space-between; }
+  .state-name { font-family: 'Bebas Neue', sans-serif; font-size: 1.3rem; letter-spacing: 3px; }
+  .mp .state-name { color: #7c9eff; }
+  .cg .state-name { color: var(--accent3); }
+  .rj .state-name { color: var(--accent2); }
+  .state-full { font-size: 0.7rem; color: var(--muted); font-family: 'IBM Plex Mono', monospace; letter-spacing: 1px; }
+  .state-news-list { padding: 0.5rem 0; min-height: 80px; }
+  .state-news-item { padding: 0.9rem 1.5rem; border-bottom: 1px solid rgba(42,42,50,0.5); display: flex; gap: 1rem; align-items: flex-start; transition: background 0.2s; }
+  .state-news-item:hover { background: var(--surface2); }
+  .state-news-item:last-child { border-bottom: none; }
+  .state-rank { font-family: 'Bebas Neue', sans-serif; font-size: 1.1rem; color: var(--muted); min-width: 22px; line-height: 1.3; }
+  .state-news-content { flex: 1; }
+  .state-news-title { font-size: 0.82rem; font-weight: 600; line-height: 1.4; color: var(--text); margin-bottom: 4px; }
+  .state-meta { display: flex; gap: 10px; font-family: 'IBM Plex Mono', monospace; font-size: 0.65rem; color: var(--muted); }
+  .state-views { color: var(--accent2); }
+
+  /* Authors */
+  .authors-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 1.2rem; margin-bottom: 2rem; }
+  .author-card {
+    background: var(--surface); border: 1px solid var(--border); border-radius: 14px;
+    padding: 1.5rem; display: flex; gap: 1rem; align-items: flex-start;
+    transition: border-color 0.25s, transform 0.25s; position: relative; overflow: hidden;
+  }
+  .author-card::before { content: ''; position: absolute; top: 0; left: 0; width: 3px; height: 100%; opacity: 0; transition: opacity 0.25s; }
+  .author-card:nth-child(1)::before { background: var(--accent); }
+  .author-card:nth-child(2)::before { background: var(--accent2); }
+  .author-card:nth-child(3)::before { background: var(--accent3); }
+  .author-card:nth-child(4)::before { background: #7c9eff; }
+  .author-card:hover { border-color: rgba(255,59,59,0.4); transform: translateY(-2px); }
+  .author-card:hover::before { opacity: 1; }
+  .author-avatar {
+    width: 48px; height: 48px; border-radius: 50%; background: var(--surface2);
+    border: 2px solid var(--border); display: flex; align-items: center; justify-content: center;
+    font-family: 'Bebas Neue', sans-serif; font-size: 1.2rem; flex-shrink: 0;
+  }
+  .author-card:nth-child(1) .author-avatar { color: var(--accent); }
+  .author-card:nth-child(2) .author-avatar { color: var(--accent2); }
+  .author-card:nth-child(3) .author-avatar { color: var(--accent3); }
+  .author-card:nth-child(4) .author-avatar { color: #7c9eff; }
+  .author-rank-badge { position: absolute; top: 12px; right: 14px; font-family: 'Bebas Neue', sans-serif; font-size: 1.8rem; color: var(--border); line-height: 1; }
+  .author-name { font-weight: 700; font-size: 0.95rem; margin-bottom: 3px; }
+  .author-beat { font-family: 'IBM Plex Mono', monospace; font-size: 0.65rem; color: var(--muted); letter-spacing: 1px; text-transform: uppercase; margin-bottom: 10px; }
+  .author-stats { display: flex; gap: 16px; }
+  .a-stat-val { font-family: 'Bebas Neue', sans-serif; font-size: 1.2rem; line-height: 1; }
+  .a-stat-lbl { font-family: 'IBM Plex Mono', monospace; font-size: 0.6rem; color: var(--muted); letter-spacing: 1px; }
+  .author-bar { height: 3px; background: var(--border); border-radius: 2px; margin-top: 12px; overflow: hidden; }
+  .author-bar-fill { height: 100%; border-radius: 2px; transition: width 1.2s ease; }
+  .author-card:nth-child(1) .author-bar-fill { background: linear-gradient(90deg, var(--accent), #ff7a7a); }
+  .author-card:nth-child(2) .author-bar-fill { background: linear-gradient(90deg, var(--accent2), #ffd460); }
+  .author-card:nth-child(3) .author-bar-fill { background: linear-gradient(90deg, var(--accent3), #7ffce0); }
+  .author-card:nth-child(4) .author-bar-fill { background: linear-gradient(90deg, #7c9eff, #c0cfff); }
+
+  .loading-row td { padding: 20px; text-align: center; color: var(--muted); font-family: 'IBM Plex Mono', monospace; font-size: 0.75rem; letter-spacing: 2px; }
+
+  footer { border-top: 1px solid var(--border); padding: 1.5rem 2rem; display: flex; align-items: center; justify-content: space-between; font-family: 'IBM Plex Mono', monospace; font-size: 0.65rem; color: var(--muted); letter-spacing: 1px; flex-wrap: wrap; gap: 1rem; }
+
+  @media (max-width: 900px) { .state-grid { grid-template-columns: 1fr; } .rt-count { font-size: 3.5rem; } }
+  @media (max-width: 600px) { main { padding: 1rem; } .authors-grid { grid-template-columns: 1fr; } }
+</style>
+</head>
+<body>
+<header>
+  <div class="logo">News<span>Analytics</span></div>
+  <div class="header-right">
+    <div class="live-badge"><div class="live-dot"></div>Live</div>
+    <div class="user-info" id="user-info"></div>
+    <a href="/auth/logout" class="logout-btn">Logout</a>
+    <div class="header-time" id="htime">--:--:--</div>
+  </div>
+</header>
+
+<main>
+  <div class="api-error" id="api-error"></div>
+
+  <!-- Real-time Banner -->
+  <div class="realtime-banner">
+    <div>
+      <div class="rt-label">▸ Active Users Right Now</div>
+      <div class="rt-count"><span id="rt-num">—</span></div>
+      <div class="rt-sub">readers on your website at this moment</div>
+    </div>
+    <div class="rt-stats">
+      <div class="rt-stat">
+        <div class="rt-stat-val green" id="rt-in">—</div>
+        <div class="rt-stat-lbl">New/min</div>
+      </div>
+      <div class="rt-stat">
+        <div class="rt-stat-val" id="rt-page">—</div>
+        <div class="rt-stat-lbl">Pages/min</div>
+      </div>
+      <div class="rt-stat">
+        <div class="rt-stat-val yellow" id="rt-bounce">—</div>
+        <div class="rt-stat-lbl">Bounce Rate</div>
+      </div>
+      <div class="rt-stat">
+        <div class="rt-stat-val" id="rt-avg">—</div>
+        <div class="rt-stat-lbl">Avg Time</div>
+      </div>
+    </div>
+    <div class="sparkline-wrap">
+      <div class="sparkline-label">ACTIVE USERS HISTORY</div>
+      <canvas id="spark" width="300" height="60"></canvas>
+    </div>
+  </div>
+
+  <!-- Top 10 News -->
+  <div class="sec-hd">
+    <h2>Top 10 Stories</h2>
+    <span class="tag tag-red">Live Views</span>
+    <span class="last-updated" id="news-updated"></span>
+  </div>
+  <div class="news-table">
+    <table>
+      <thead>
+        <tr>
+          <th>#</th>
+          <th>Page Title</th>
+          <th>Active Users</th>
+          <th>Page Views</th>
+          <th>Share</th>
+        </tr>
+      </thead>
+      <tbody id="top10-body">
+        <tr class="loading-row"><td colspan="5">⬤ LOADING REAL-TIME DATA...</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <!-- State Columns -->
+  <div class="sec-hd">
+    <h2>State Spotlight</h2>
+    <span class="tag tag-teal">Last 7 Days</span>
+    <span class="last-updated" id="state-updated"></span>
+  </div>
+  <div class="state-grid">
+    <div class="state-col mp">
+      <div class="state-header">
+        <div><div class="state-name">MADHYA PRADESH</div><div class="state-full">MP · 7-Day Views</div></div>
+      </div>
+      <div class="state-news-list" id="mp-list"><div style="padding:20px;text-align:center;color:var(--muted);font-size:0.75rem;font-family:monospace">Loading...</div></div>
+    </div>
+    <div class="state-col cg">
+      <div class="state-header">
+        <div><div class="state-name">CHHATTISGARH</div><div class="state-full">CG · 7-Day Views</div></div>
+      </div>
+      <div class="state-news-list" id="cg-list"><div style="padding:20px;text-align:center;color:var(--muted);font-size:0.75rem;font-family:monospace">Loading...</div></div>
+    </div>
+    <div class="state-col rj">
+      <div class="state-header">
+        <div><div class="state-name">RAJASTHAN</div><div class="state-full">RJ · 7-Day Views</div></div>
+      </div>
+      <div class="state-news-list" id="rj-list"><div style="padding:20px;text-align:center;color:var(--muted);font-size:0.75rem;font-family:monospace">Loading...</div></div>
+    </div>
+  </div>
+
+  <!-- Top Authors -->
+  <div class="sec-hd">
+    <h2>Top Writers</h2>
+    <span class="tag tag-yellow">This Month</span>
+    <span class="last-updated" id="authors-updated"></span>
+  </div>
+  <div class="authors-grid" id="authors-grid">
+    <div style="color:var(--muted);font-family:monospace;font-size:0.75rem;padding:1rem">Loading authors...</div>
+  </div>
+</main>
+
+<footer>
+  <span>© 2026 NewsAnalytics — Powered by Google Analytics 4</span>
+  <span>Auto-refresh: <strong style="color:var(--text)">Realtime 10s · Reports 5min</strong></span>
+  <span>Regions: <strong style="color:var(--text)">MP · CG · RJ</strong></span>
+</footer>
+
+<script>
+// ── Auth Check ──────────────────────────────────────────────────
+(async () => {
+  const res = await fetch('/auth/me');
+  const data = await res.json();
+  if (!data.loggedIn) { window.location.href = '/'; return; }
+  const ui = document.getElementById('user-info');
+  ui.innerHTML = `
+    ${data.user.picture ? `<img class="user-avatar" src="${data.user.picture}" alt="">` : ''}
+    <span class="user-name">${data.user.name}</span>
+  `;
+})();
+
+// ── Clock ───────────────────────────────────────────────────────
+function updateClock() { document.getElementById('htime').textContent = new Date().toLocaleTimeString('en-IN'); }
+setInterval(updateClock, 1000); updateClock();
+
+function timeLabel() { return new Date().toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', second: '2-digit' }); }
+
+function showError(msg) {
+  const el = document.getElementById('api-error');
+  el.textContent = '⚠ API Error: ' + msg;
+  el.style.display = 'block';
+  setTimeout(() => { el.style.display = 'none'; }, 6000);
+}
+
+// ── Sparkline ───────────────────────────────────────────────────
+let sparkData = Array(30).fill(0);
+function drawSparkline() {
+  const canvas = document.getElementById('spark');
+  const ctx = canvas.getContext('2d');
+  const dpr = window.devicePixelRatio || 1;
+  canvas.width = canvas.offsetWidth * dpr;
+  canvas.height = 60 * dpr;
+  ctx.scale(dpr, dpr);
+  const W = canvas.offsetWidth, H = 60, pad = 4;
+  const min = Math.min(...sparkData), max = Math.max(...sparkData);
+  if (max === min) return;
+  ctx.clearRect(0,0,W,H);
+  const grad = ctx.createLinearGradient(0,0,0,H);
+  grad.addColorStop(0, 'rgba(255,59,59,0.3)');
+  grad.addColorStop(1, 'rgba(255,59,59,0)');
+  ctx.beginPath();
+  sparkData.forEach((v,i) => {
+    const x = (i/(sparkData.length-1))*(W-pad*2)+pad;
+    const y = H-pad-((v-min)/(max-min))*(H-pad*2);
+    i===0 ? ctx.moveTo(x,y) : ctx.lineTo(x,y);
+  });
+  ctx.lineTo(W-pad,H); ctx.lineTo(pad,H); ctx.closePath();
+  ctx.fillStyle = grad; ctx.fill();
+  ctx.beginPath();
+  sparkData.forEach((v,i) => {
+    const x = (i/(sparkData.length-1))*(W-pad*2)+pad;
+    const y = H-pad-((v-min)/(max-min))*(H-pad*2);
+    i===0 ? ctx.moveTo(x,y) : ctx.lineTo(x,y);
+  });
+  ctx.strokeStyle = 'rgba(255,59,59,0.9)'; ctx.lineWidth = 1.5; ctx.lineJoin = 'round'; ctx.stroke();
+}
+window.addEventListener('resize', drawSparkline);
+
+// ── Fetch Realtime Users ─────────────────────────────────────────
+async function fetchRealtime() {
+  try {
+    const [rtRes, ssRes] = await Promise.all([
+      fetch('/api/realtime'),
+      fetch('/api/session-stats')
+    ]);
+    const rt = await rtRes.json();
+    const ss = await ssRes.json();
+    if (rt.error) throw new Error(rt.error);
+
+    document.getElementById('rt-num').textContent = (rt.totalUsers || 0).toLocaleString('en-IN');
+    document.getElementById('rt-in').textContent = '+' + (rt.usersPerMin || 0);
+    document.getElementById('rt-page').textContent = (rt.pagesPerMin || 0).toLocaleString();
+    document.getElementById('rt-bounce').textContent = ss.bounceRate || '—';
+    document.getElementById('rt-avg').textContent = ss.avgDuration || '—';
+
+    sparkData.push(rt.totalUsers || 0);
+    sparkData.shift();
+    drawSparkline();
+  } catch (err) {
+    showError(err.message);
+  }
+}
+
+// ── Fetch Top 10 News ────────────────────────────────────────────
+async function fetchTopNews() {
+  try {
+    const res = await fetch('/api/top-news');
+    const data = await res.json();
+    if (data.error) throw new Error(data.error);
+
+    const maxV = data.news[0]?.pageViews || 1;
+    const rows = data.news.map((n, i) => {
+      const pct = Math.round(n.pageViews / maxV * 100);
+      const initials = n.title.split(' ').slice(0,2).map(w=>w[0]).join('').toUpperCase();
+      return `<tr class="rank-${i+1}">
+        <td class="rank-num">${i+1}</td>
+        <td>
+          <div class="news-title">${n.title}</div>
+          <div class="news-path">${n.path}</div>
+          <div class="bar-wrap"><div class="bar-fill" style="width:${pct}%"></div></div>
+        </td>
+        <td class="views-cell">${(n.activeUsers||0).toLocaleString('en-IN')}<br><span>active</span></td>
+        <td class="views-cell">${(n.pageViews||0).toLocaleString('en-IN')}<br><span>views</span></td>
+        <td class="views-cell">${pct}%</td>
+      </tr>`;
+    }).join('');
+
+    document.getElementById('top10-body').innerHTML = rows || '<tr class="loading-row"><td colspan="5">No data available</td></tr>';
+    document.getElementById('news-updated').textContent = 'Updated ' + timeLabel();
+  } catch (err) {
+    showError(err.message);
+    document.getElementById('top10-body').innerHTML = `<tr class="loading-row"><td colspan="5">Error: ${err.message}</td></tr>`;
+  }
+}
+
+// ── Fetch State News ─────────────────────────────────────────────
+async function fetchStateNews() {
+  const states = ['mp', 'cg', 'rj'];
+  await Promise.all(states.map(async (state) => {
+    try {
+      const res = await fetch(`/api/state-news?state=${state}`);
+      const data = await res.json();
+      if (data.error) throw new Error(data.error);
+
+      const html = (data.news || []).map((n, i) => `
+        <div class="state-news-item">
+          <div class="state-rank">${i+1}</div>
+          <div class="state-news-content">
+            <div class="state-news-title">${n.title}</div>
+            <div class="state-meta">
+              <span class="state-views">👁 ${(n.views||0).toLocaleString('en-IN')}</span>
+              <span>${(n.users||0).toLocaleString()} users</span>
+            </div>
+          </div>
+        </div>`).join('') || '<div style="padding:20px;text-align:center;color:var(--muted);font-size:0.75rem;font-family:monospace">No data for this region</div>';
+
+      document.getElementById(`${state}-list`).innerHTML = html;
+    } catch (err) {
+      document.getElementById(`${state}-list`).innerHTML = `<div style="padding:20px;text-align:center;color:var(--accent);font-size:0.7rem;font-family:monospace">Error: ${err.message}</div>`;
+    }
+  }));
+  document.getElementById('state-updated').textContent = 'Updated ' + timeLabel();
+}
+
+// ── Fetch Authors ─────────────────────────────────────────────────
+async function fetchAuthors() {
+  try {
+    const res = await fetch('/api/top-authors');
+    const data = await res.json();
+    if (data.error) throw new Error(data.error);
+
+    const html = (data.authors || []).map((a, i) => {
+      const initials = a.name.split(' ').map(w=>w[0]).join('').substring(0,2);
+      return `<div class="author-card">
+        <div class="author-avatar">${initials}</div>
+        <div style="flex:1">
+          <div class="author-rank-badge">#${i+1}</div>
+          <div class="author-name">${a.name}</div>
+          <div class="author-beat">Author</div>
+          <div class="author-stats">
+            <div>
+              <div class="a-stat-val">${(a.views||0).toLocaleString('en-IN')}</div>
+              <div class="a-stat-lbl">Views</div>
+            </div>
+            <div>
+              <div class="a-stat-val">${(a.sessions||0).toLocaleString()}</div>
+              <div class="a-stat-lbl">Sessions</div>
+            </div>
+          </div>
+          <div class="author-bar"><div class="author-bar-fill" style="width:${a.pct||0}%"></div></div>
+        </div>
+      </div>`;
+    }).join('');
+
+    document.getElementById('authors-grid').innerHTML = html || '<div style="color:var(--muted);font-family:monospace;font-size:0.75rem;padding:1rem">No author data. Make sure you have a custom dimension "author" set up in GA4.</div>';
+    document.getElementById('authors-updated').textContent = 'Updated ' + timeLabel();
+  } catch (err) {
+    showError(err.message);
+    document.getElementById('authors-grid').innerHTML = `<div style="color:var(--accent);font-family:monospace;font-size:0.75rem;padding:1rem">Error: ${err.message}</div>`;
+  }
+}
+
+// ── Init & Polling ───────────────────────────────────────────────
+fetchRealtime();
+fetchTopNews();
+fetchStateNews();
+fetchAuthors();
+
+setInterval(fetchRealtime, 10000);        // every 10s
+setInterval(fetchTopNews, 10000);         // every 10s
+setInterval(fetchStateNews, 5 * 60000);  // every 5 min
+setInterval(fetchAuthors, 5 * 60000);    // every 5 min
+</script>
+</body>
+</html>

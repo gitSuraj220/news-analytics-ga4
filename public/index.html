@@ -1,0 +1,321 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>NewsAnalytics — Live GA4 Dashboard</title>
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=IBM+Plex+Mono:wght@400;600&family=IBM+Plex+Sans:wght@300;400;600;700&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#0a0a0b;--surface:#111114;--surface2:#1a1a1f;--border:#2a2a32;--accent:#ff3b3b;--accent2:#ffb800;--accent3:#00d4aa;--text:#e8e8ec;--muted:#6b6b7a;--online:#00ff88}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg);color:var(--text);font-family:'IBM Plex Sans',sans-serif;min-height:100vh}
+#login-screen{position:fixed;inset:0;background:var(--bg);z-index:999;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2rem}
+.login-logo{font-family:'Bebas Neue',sans-serif;font-size:3rem;letter-spacing:6px;color:var(--accent)}
+.login-logo span{color:var(--text)}
+.login-sub{color:var(--muted);font-size:.9rem;text-align:center;max-width:380px;line-height:1.6}
+.btn-google{display:flex;align-items:center;gap:12px;background:#fff;color:#1a1a1a;border:none;padding:14px 28px;border-radius:10px;font-size:1rem;font-weight:600;cursor:pointer;text-decoration:none;transition:transform .15s,box-shadow .15s}
+.btn-google:hover{transform:translateY(-2px);box-shadow:0 8px 30px rgba(255,255,255,.15)}
+.btn-google svg{width:22px;height:22px}
+#login-screen.hidden{display:none}
+header{border-bottom:1px solid var(--border);padding:0 2rem;display:flex;align-items:center;justify-content:space-between;height:56px;position:sticky;top:0;z-index:100;background:rgba(10,10,11,.92);backdrop-filter:blur(12px)}
+.logo{font-family:'Bebas Neue',sans-serif;font-size:1.6rem;letter-spacing:3px;color:var(--accent)}
+.logo span{color:var(--text)}
+.live-badge{display:flex;align-items:center;gap:8px;font-family:'IBM Plex Mono',monospace;font-size:.7rem;letter-spacing:2px;color:var(--online);text-transform:uppercase}
+.live-dot{width:8px;height:8px;border-radius:50%;background:var(--online);animation:pulse 1.5s ease infinite}
+@keyframes pulse{0%,100%{opacity:1;transform:scale(1)}50%{opacity:.4;transform:scale(.7)}}
+.user-info{display:flex;align-items:center;gap:10px;font-size:.8rem;color:var(--muted)}
+.user-info img{width:28px;height:28px;border-radius:50%;border:1px solid var(--border)}
+.btn-logout{background:transparent;border:1px solid var(--border);color:var(--muted);padding:4px 12px;border-radius:6px;cursor:pointer;font-size:.72rem;font-family:'IBM Plex Mono',monospace;letter-spacing:1px;text-transform:uppercase;text-decoration:none;transition:border-color .2s,color .2s}
+.btn-logout:hover{border-color:var(--accent);color:var(--accent)}
+.header-time{font-family:'IBM Plex Mono',monospace;font-size:.75rem;color:var(--muted)}
+main{padding:2rem;max-width:1400px;margin:0 auto}
+.realtime-banner{background:linear-gradient(135deg,#1a0505,#150808 50%,#0f0f12);border:1px solid #3a1515;border-radius:16px;padding:2rem 2.5rem;margin-bottom:2.5rem;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:2rem;position:relative;overflow:hidden}
+.realtime-banner::after{content:'';position:absolute;right:-40px;top:-40px;width:200px;height:200px;background:radial-gradient(circle,rgba(255,59,59,.12),transparent 70%);pointer-events:none}
+.rt-label{font-family:'IBM Plex Mono',monospace;font-size:.7rem;letter-spacing:3px;color:var(--accent);text-transform:uppercase;margin-bottom:.5rem}
+.rt-count{font-family:'Bebas Neue',sans-serif;font-size:5rem;line-height:1;color:var(--text)}
+.rt-count span{color:var(--accent)}
+.rt-sub{font-size:.85rem;color:var(--muted);margin-top:4px}
+.rt-stats{display:flex;gap:2.5rem;flex-wrap:wrap}
+.rt-stat-val{font-family:'Bebas Neue',sans-serif;font-size:2rem}
+.rt-stat-val.green{color:var(--accent3)}
+.rt-stat-val.yellow{color:var(--accent2)}
+.rt-stat-lbl{font-size:.72rem;color:var(--muted);letter-spacing:1px;font-family:'IBM Plex Mono',monospace;text-transform:uppercase}
+.sparkline-wrap{flex:1;min-width:220px}
+.sparkline-label{font-family:'IBM Plex Mono',monospace;font-size:.65rem;color:var(--muted);letter-spacing:2px;margin-bottom:8px}
+canvas#spark{width:100%;height:60px}
+.sec-hd{display:flex;align-items:baseline;gap:1rem;margin-bottom:1.5rem}
+.sec-hd h2{font-family:'Bebas Neue',sans-serif;font-size:1.8rem;letter-spacing:2px}
+.tag{font-family:'IBM Plex Mono',monospace;font-size:.65rem;letter-spacing:2px;padding:3px 10px;border-radius:100px;text-transform:uppercase}
+.tag-red{background:rgba(255,59,59,.15);color:var(--accent);border:1px solid rgba(255,59,59,.3)}
+.tag-teal{background:rgba(0,212,170,.12);color:var(--accent3);border:1px solid rgba(0,212,170,.25)}
+.tag-yellow{background:rgba(255,184,0,.12);color:var(--accent2);border:1px solid rgba(255,184,0,.25)}
+.news-table{background:var(--surface);border:1px solid var(--border);border-radius:16px;overflow:hidden;margin-bottom:2.5rem}
+.news-table table{width:100%;border-collapse:collapse}
+.news-table thead th{background:var(--surface2);font-family:'IBM Plex Mono',monospace;font-size:.65rem;letter-spacing:2px;text-transform:uppercase;color:var(--muted);padding:14px 20px;text-align:left;border-bottom:1px solid var(--border)}
+.news-table tbody tr{border-bottom:1px solid rgba(42,42,50,.6);transition:background .2s}
+.news-table tbody tr:hover{background:var(--surface2)}
+.news-table tbody tr:last-child{border-bottom:none}
+.news-table td{padding:14px 20px;font-size:.88rem}
+.rank-num{font-family:'Bebas Neue',sans-serif;font-size:1.4rem;color:var(--muted);width:40px}
+.rank-1 .rank-num{color:var(--accent)}
+.rank-2 .rank-num{color:var(--accent2)}
+.rank-3 .rank-num{color:var(--accent3)}
+.news-title{font-weight:600;max-width:420px;line-height:1.4}
+.news-path{font-family:'IBM Plex Mono',monospace;font-size:.65rem;color:var(--muted);margin-top:2px}
+.bar-wrap{width:100px;height:4px;background:var(--border);border-radius:2px;overflow:hidden;margin-top:6px}
+.bar-fill{height:100%;border-radius:2px;background:linear-gradient(90deg,var(--accent),#ff7a7a);transition:width 1s ease}
+.views-cell{font-family:'IBM Plex Mono',monospace;font-size:.85rem;white-space:nowrap}
+.views-cell span{color:var(--muted);font-size:.7rem}
+.adot{width:7px;height:7px;border-radius:50%;background:var(--online);display:inline-block;margin-right:4px;animation:pulse 2s infinite}
+.loading-msg{padding:2rem;font-family:'IBM Plex Mono',monospace;font-size:.75rem;letter-spacing:2px;text-align:center;color:var(--muted)}
+.state-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:1.5rem;margin-bottom:2.5rem}
+.state-col{background:var(--surface);border:1px solid var(--border);border-radius:16px;overflow:hidden}
+.state-header{padding:1.2rem 1.5rem;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between}
+.state-name{font-family:'Bebas Neue',sans-serif;font-size:1.3rem;letter-spacing:3px}
+.mp .state-name{color:#7c9eff}
+.cg .state-name{color:var(--accent3)}
+.rj .state-name{color:var(--accent2)}
+.state-full{font-size:.7rem;color:var(--muted);font-family:'IBM Plex Mono',monospace;letter-spacing:1px}
+.speriod{font-family:'IBM Plex Mono',monospace;font-size:.65rem;color:var(--muted)}
+.state-news-item{padding:.9rem 1.5rem;border-bottom:1px solid rgba(42,42,50,.5);display:flex;gap:1rem;align-items:flex-start;transition:background .2s}
+.state-news-item:hover{background:var(--surface2)}
+.state-news-item:last-child{border-bottom:none}
+.srank{font-family:'Bebas Neue',sans-serif;font-size:1.1rem;color:var(--muted);min-width:22px;line-height:1.3}
+.stitle{font-size:.82rem;font-weight:600;line-height:1.4;margin-bottom:4px}
+.smeta{display:flex;gap:10px;font-family:'IBM Plex Mono',monospace;font-size:.65rem;color:var(--muted)}
+.sviews{color:var(--accent2)}
+.authors-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:1.2rem;margin-bottom:2rem}
+.author-card{background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:1.5rem;display:flex;gap:1rem;align-items:flex-start;transition:border-color .25s,transform .25s;position:relative;overflow:hidden}
+.author-card::before{content:'';position:absolute;top:0;left:0;width:3px;height:100%;background:var(--accent);opacity:0;transition:opacity .25s}
+.author-card:nth-child(2)::before{background:var(--accent2)}
+.author-card:nth-child(3)::before{background:var(--accent3)}
+.author-card:nth-child(4)::before{background:#7c9eff}
+.author-card:hover{border-color:rgba(255,59,59,.4);transform:translateY(-2px)}
+.author-card:hover::before{opacity:1}
+.aavatar{width:48px;height:48px;border-radius:50%;background:var(--surface2);border:2px solid var(--border);display:flex;align-items:center;justify-content:center;font-family:'Bebas Neue',sans-serif;font-size:1.2rem;flex-shrink:0}
+.arank{position:absolute;top:12px;right:14px;font-family:'Bebas Neue',sans-serif;font-size:1.8rem;color:var(--border);line-height:1}
+.aname{font-weight:700;font-size:.95rem;margin-bottom:3px}
+.astats{display:flex;gap:16px;margin-top:8px}
+.asval{font-family:'Bebas Neue',sans-serif;font-size:1.2rem;line-height:1}
+.aslbl{font-family:'IBM Plex Mono',monospace;font-size:.6rem;color:var(--muted);letter-spacing:1px}
+.abar{height:3px;background:var(--border);border-radius:2px;margin-top:12px;overflow:hidden}
+.abar-fill{height:100%;border-radius:2px;transition:width 1.2s ease}
+.err-banner{background:rgba(255,59,59,.1);border:1px solid rgba(255,59,59,.3);border-radius:8px;padding:12px 16px;font-family:'IBM Plex Mono',monospace;font-size:.75rem;color:var(--accent);margin-bottom:1rem;display:none}
+footer{border-top:1px solid var(--border);padding:1.5rem 2rem;display:flex;align-items:center;justify-content:space-between;font-family:'IBM Plex Mono',monospace;font-size:.65rem;color:var(--muted);flex-wrap:wrap;gap:1rem}
+@media(max-width:900px){.state-grid{grid-template-columns:1fr}.rt-count{font-size:3.5rem}.authors-grid{grid-template-columns:1fr 1fr}}
+@media(max-width:600px){main{padding:1rem}.authors-grid{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+
+<div id="login-screen">
+  <div class="login-logo">News<span>Analytics</span></div>
+  <p class="login-sub">Connect your Google Analytics 4 account to see real-time news performance across MP, CG & RJ.</p>
+  <a href="/auth/google" class="btn-google">
+    <svg viewBox="0 0 24 24"><path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/><path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/><path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l3.66-2.84z"/><path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/></svg>
+    Sign in with Google
+  </a>
+  <p style="font-size:.7rem;color:var(--muted);font-family:'IBM Plex Mono',monospace">Requires GA4 Analytics read access</p>
+</div>
+
+<header>
+  <div class="logo">News<span>Analytics</span></div>
+  <div class="live-badge"><div class="live-dot"></div>GA4 Live</div>
+  <div style="display:flex;align-items:center;gap:1.5rem">
+    <div class="user-info" id="user-info" style="display:none">
+      <img id="user-photo" src="" alt="">
+      <span id="user-name"></span>
+      <a href="/auth/logout" class="btn-logout">Logout</a>
+    </div>
+    <div class="header-time" id="htime">--:--:--</div>
+  </div>
+</header>
+
+<main>
+  <div class="err-banner" id="err-banner"></div>
+
+  <div class="realtime-banner">
+    <div>
+      <div class="rt-label">▸ Active Users Right Now</div>
+      <div class="rt-count"><span id="rt-num">—</span></div>
+      <div class="rt-sub">live readers on your website</div>
+    </div>
+    <div class="rt-stats">
+      <div><div class="rt-stat-val green" id="rt-in">—</div><div class="rt-stat-lbl">New/min</div></div>
+      <div><div class="rt-stat-val" id="rt-page">—</div><div class="rt-stat-lbl">Pages/min</div></div>
+      <div><div class="rt-stat-val yellow" id="rt-bounce">—</div><div class="rt-stat-lbl">Bounce Rate <span style="font-size:.55rem;opacity:.6">(MTD)</span></div></div>
+      <div><div class="rt-stat-val" id="rt-avg">—</div><div class="rt-stat-lbl">Avg Time <span style="font-size:.55rem;opacity:.6">(MTD)</span></div></div>
+    </div>
+    <div class="sparkline-wrap">
+      <div class="sparkline-label">ACTIVE USERS — LAST 30 POLLS</div>
+      <canvas id="spark" width="300" height="60"></canvas>
+    </div>
+  </div>
+
+  <div class="sec-hd"><h2>Top 10 Stories</h2><span class="tag tag-red">Last 30 Min · Live</span></div>
+  <div class="news-table">
+    <table>
+      <thead><tr><th>#</th><th>Headline</th><th>Active Users</th></tr></thead>
+      <tbody id="top10-body"><tr><td colspan="3"><div class="loading-msg">CONNECTING TO GA4...</div></td></tr></tbody>
+    </table>
+  </div>
+
+  <div class="sec-hd"><h2>State Spotlight</h2><span class="tag tag-teal">Last 7 Days</span></div>
+  <div class="state-grid">
+    <div class="state-col mp">
+      <div class="state-header"><div><div class="state-name">MADHYA PRADESH</div><div class="state-full">/mp/ · /state/madhya-pradesh/</div></div><span class="speriod">7D</span></div>
+      <div id="mp-list"><div class="loading-msg">Loading...</div></div>
+    </div>
+    <div class="state-col cg">
+      <div class="state-header"><div><div class="state-name">CHHATTISGARH</div><div class="state-full">/cg/ · /state/chhattisgarh/</div></div><span class="speriod">7D</span></div>
+      <div id="cg-list"><div class="loading-msg">Loading...</div></div>
+    </div>
+    <div class="state-col rj">
+      <div class="state-header"><div><div class="state-name">RAJASTHAN</div><div class="state-full">/rj/ · /state/rajasthan/</div></div><span class="speriod">7D</span></div>
+      <div id="rj-list"><div class="loading-msg">Loading...</div></div>
+    </div>
+  </div>
+
+  <div class="sec-hd"><h2>Top Writers</h2><span class="tag tag-yellow">This Month · GA4 Custom Dim</span></div>
+  <div class="authors-grid" id="authors-grid"><div class="loading-msg">Loading authors...</div></div>
+</main>
+
+<footer>
+  <span>© 2026 NewsAnalytics — GA4 Powered</span>
+  <span id="last-refresh">Last refresh: —</span>
+  <span>States: <strong style="color:var(--text)">MP · CG · RJ</strong></span>
+</footer>
+
+<script>
+let sparkData = Array(30).fill(0);
+
+setInterval(() => { document.getElementById('htime').textContent = new Date().toLocaleTimeString('en-IN'); }, 1000);
+
+async function checkAuth() {
+  const d = await fetch('/auth/me').then(r => r.json());
+  if (d.loggedIn) {
+    document.getElementById('login-screen').classList.add('hidden');
+    document.getElementById('user-info').style.display = 'flex';
+    document.getElementById('user-photo').src = d.photo;
+    document.getElementById('user-name').textContent = d.name;
+    startDashboard();
+  }
+}
+
+function drawSparkline() {
+  const canvas = document.getElementById('spark');
+  const ctx = canvas.getContext('2d');
+  const dpr = window.devicePixelRatio || 1;
+  canvas.width = canvas.offsetWidth * dpr; canvas.height = 60 * dpr; ctx.scale(dpr, dpr);
+  const W = canvas.offsetWidth, H = 60, pad = 4;
+  const min = Math.min(...sparkData), max = Math.max(...sparkData), range = max - min || 1;
+  ctx.clearRect(0, 0, W, H);
+  const grad = ctx.createLinearGradient(0, 0, 0, H);
+  grad.addColorStop(0, 'rgba(255,59,59,0.3)'); grad.addColorStop(1, 'rgba(255,59,59,0)');
+  const pts = sparkData.map((v, i) => [pad + (i/(sparkData.length-1))*(W-pad*2), H-pad-((v-min)/range)*(H-pad*2)]);
+  ctx.beginPath(); pts.forEach(([x,y],i) => i?ctx.lineTo(x,y):ctx.moveTo(x,y));
+  ctx.lineTo(W-pad,H); ctx.lineTo(pad,H); ctx.closePath(); ctx.fillStyle=grad; ctx.fill();
+  ctx.beginPath(); pts.forEach(([x,y],i) => i?ctx.lineTo(x,y):ctx.moveTo(x,y));
+  ctx.strokeStyle='rgba(255,59,59,0.9)'; ctx.lineWidth=1.5; ctx.lineJoin='round'; ctx.stroke();
+}
+
+async function fetchRealtime() {
+  try {
+    const d = await fetch('/api/realtime').then(r => r.json());
+    if (d.error) throw new Error(d.error);
+    document.getElementById('rt-num').textContent = d.activeUsers.toLocaleString('en-IN');
+    document.getElementById('rt-in').textContent = '+' + d.newPerMin;
+    document.getElementById('rt-page').textContent = d.pageviewsPerMin.toLocaleString();
+    document.getElementById('rt-bounce').textContent = d.bounceRate;
+    document.getElementById('rt-avg').textContent = d.avgDuration;
+    // Use GA4's minutesAgo sparkline if available, otherwise fall back to local tracking
+    if (d.sparkline && d.sparkline.some(v => v > 0)) {
+      sparkData = d.sparkline;
+    } else {
+      sparkData.push(d.activeUsers); sparkData.shift();
+    }
+    drawSparkline();
+  } catch(e) { showErr('Realtime: ' + e.message); }
+}
+
+async function fetchTop10() {
+  try {
+    const rows = await fetch('/api/top-news').then(r => r.json());
+    if (rows.error) throw new Error(rows.error);
+    if (!rows.length) { document.getElementById('top10-body').innerHTML = '<tr><td colspan="3"><div class="loading-msg">No active users right now</div></td></tr>'; return; }
+    const maxV = rows[0].activeUsers || 1;
+    document.getElementById('top10-body').innerHTML = rows.map(n => `
+      <tr class="rank-${n.rank}">
+        <td class="rank-num">${n.rank}</td>
+        <td><div class="news-title">${n.title}</div><div class="bar-wrap"><div class="bar-fill" style="width:${Math.round(n.activeUsers/maxV*100)}%"></div></div></td>
+        <td class="views-cell"><span class="adot"></span>${n.activeUsers.toLocaleString('en-IN')}<br><span>active</span></td>
+      </tr>`).join('');
+  } catch(e) { showErr('Top 10: ' + e.message); }
+}
+
+async function fetchState(state, id) {
+  try {
+    const rows = await fetch(`/api/state-news/${state}`).then(r => r.json());
+    document.getElementById(id).innerHTML = rows.length
+      ? rows.map(n => `<div class="state-news-item"><div class="srank">${n.rank}</div><div><div class="stitle">${n.title}</div><div class="smeta"><span class="sviews">👁 ${n.views.toLocaleString('en-IN')}</span><span>${n.path}</span></div></div></div>`).join('')
+      : `<div class="loading-msg">No /${state}/ pages found</div>`;
+  } catch(e) { document.getElementById(id).innerHTML = `<div class="loading-msg" style="color:var(--accent)">${e.message}</div>`; }
+}
+
+async function fetchAuthors() {
+  try {
+    const rows = await fetch('/api/top-authors').then(r => r.json());
+    if (!Array.isArray(rows)) throw new Error(rows.error || 'Unexpected response');
+    if (!rows.length) {
+      // Fetch which custom dims actually exist to give a helpful message
+      let dimHint = '';
+      try {
+        const dims = await fetch('/api/ga4-dims').then(r => r.json());
+        if (Array.isArray(dims) && dims.length) {
+          dimHint = `<br><span style="font-size:.7rem;opacity:.6">Current GA4 custom dims: ${dims.map(d=>d.apiName).join(', ')}</span>`;
+        }
+      } catch(_) {}
+      document.getElementById('authors-grid').innerHTML = `<div class="loading-msg" style="text-align:left;padding:1.5rem">
+        <strong style="color:var(--accent)">Author tracking not set up in GA4</strong><br><br>
+        To enable Top Writers, add this to your website's GA4 event code:<br>
+        <code style="display:block;margin:.5rem 0;padding:.5rem;background:rgba(255,255,255,.05);border-radius:4px;font-size:.7rem">gtag('event', 'page_view', { author: 'Author Name' });</code>
+        Then register <strong>author</strong> as a custom dimension in GA4 Admin → Custom Definitions.${dimHint}
+      </div>`;
+      return;
+    }
+    const C = ['var(--accent)','var(--accent2)','var(--accent3)','#7c9eff','#c084fc','#f97316'];
+    const maxV = rows[0]?.views || 1;
+    document.getElementById('authors-grid').innerHTML = rows.map((a,i) => {
+      const init = a.name.split(' ').map(w=>w[0]).join('').toUpperCase();
+      const fv = a.views >= 1e6 ? (a.views/1e6).toFixed(1)+'M' : a.views >= 1000 ? (a.views/1000).toFixed(0)+'K' : a.views;
+      return `<div class="author-card"><div class="aavatar" style="color:${C[i]}">${init}</div>
+        <div style="flex:1"><div class="arank">#${a.rank}</div>
+          <div class="aname">${a.name}</div>
+          <div class="astats"><div><div class="asval">${fv}</div><div class="aslbl">Views</div></div><div><div class="asval">${a.articles}</div><div class="aslbl">Sessions</div></div></div>
+          <div class="abar"><div class="abar-fill" style="width:${Math.round(a.views/maxV*100)}%;background:linear-gradient(90deg,${C[i]},${C[i]}99)"></div></div>
+        </div></div>`;
+    }).join('');
+  } catch(e) { document.getElementById('authors-grid').innerHTML = `<div class="loading-msg" style="color:var(--accent)">${e.message}</div>`; }
+}
+
+function showErr(msg) {
+  const el = document.getElementById('err-banner');
+  el.textContent = '⚠ ' + msg; el.style.display = 'block';
+  setTimeout(() => el.style.display = 'none', 6000);
+}
+
+function startDashboard() {
+  fetchRealtime(); fetchTop10();
+  fetchState('mp','mp-list'); fetchState('cg','cg-list'); fetchState('rj','rj-list');
+  fetchAuthors();
+  document.getElementById('last-refresh').textContent = 'Last refresh: ' + new Date().toLocaleTimeString('en-IN');
+  setInterval(() => { fetchRealtime(); fetchTop10(); document.getElementById('last-refresh').textContent = 'Last refresh: ' + new Date().toLocaleTimeString('en-IN'); }, 10000);
+  setInterval(() => { fetchAuthors(); }, 60000);
+  setInterval(() => { fetchState('mp','mp-list'); fetchState('cg','cg-list'); fetchState('rj','rj-list'); }, 300000);
+}
+
+window.addEventListener('resize', drawSparkline);
+checkAuth();
+</script>
+</body>
+</html>

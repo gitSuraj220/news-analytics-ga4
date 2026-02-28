@@ -1,0 +1,25 @@
+{
+  "name": "news-analytics-dashboard",
+  "version": "1.0.0",
+  "description": "GA4-powered News Analytics Dashboard",
+  "main": "server/index.js",
+  "scripts": {
+    "start": "node server/index.js",
+    "dev": "nodemon server/index.js"
+  },
+  "dependencies": {
+    "cookie-session": "^2.1.1",
+    "cors": "^2.8.5",
+    "dotenv": "^16.3.1",
+    "express": "^4.18.2",
+    "express-session": "^1.17.3",
+    "googleapis": "^128.0.0",
+    "node-cache": "^5.1.2",
+    "passport": "^0.6.0",
+    "passport-google-oauth20": "^2.0.0",
+    "vercel": "^50.25.4"
+  },
+  "devDependencies": {
+    "nodemon": "^3.0.1"
+  }
+}
