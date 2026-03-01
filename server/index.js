@@ -211,21 +211,21 @@ app.get('/api/state-news/:state', requireAuth, async (req, res) => {
 });
 
 // ── API: Top Authors (Current Month) ─────────────────────
-// Tries customUser:author, then customEvent:author; returns [] if neither is configured in GA4
 app.get('/api/top-authors', requireAuth, async (req, res) => {
   try {
     const k = 'authors';
     if (cache.has(k)) return res.json(cache.get(k));
     const now = new Date();
     const startOfMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-01`;
-    const tryDimension = async (dim) => {
+
+    const tryReport = async (dim, metric, orderMetric) => {
       const r = await ga(req.user).properties.runReport({
         property: PROP(),
         requestBody: {
           dateRanges: [{ startDate: startOfMonth, endDate: 'today' }],
-          metrics: [{ name: 'screenPageViews' }, { name: 'sessions' }],
+          metrics: [{ name: metric }, { name: 'sessions' }],
           dimensions: [{ name: dim }],
-          orderBys: [{ metric: { metricName: 'screenPageViews' }, desc: true }],
+          orderBys: [{ metric: { metricName: orderMetric || metric }, desc: true }],
           limit: 20
         }
       });
@@ -242,27 +242,22 @@ app.get('/api/top-authors', requireAuth, async (req, res) => {
           articles: parseInt(row.metricValues[1].value)
         }));
     };
-    // Auto-discover author dimension from GA4 metadata
+
+    // Ordered attempts: event-scoped dim with eventCount first (most reliable),
+    // then screenPageViews fallback, then user-scoped guesses
+    const attempts = [
+      { dim: 'customEvent:author',  metric: 'eventCount' },
+      { dim: 'customEvent:author',  metric: 'screenPageViews' },
+      { dim: 'customEvent:Author',  metric: 'eventCount' },
+      { dim: 'customUser:author',   metric: 'screenPageViews' },
+      { dim: 'customUser:Author',   metric: 'screenPageViews' },
+      { dim: 'customEvent:writer',  metric: 'eventCount' },
+      { dim: 'customUser:writer',   metric: 'screenPageViews' },
+    ];
+
     let rows = [];
-    let foundDim = null;
-    try {
-      const meta = await ga(req.user).properties.getMetadata({ name: `${PROP()}/metadata` });
-      const customDims = (meta.data.dimensions || []).filter(d => d.apiName && d.apiName.startsWith('custom'));
-      // Look for any custom dim whose name/description contains author/writer
-      const authorDim = customDims.find(d => {
-        const n = (d.apiName + ' ' + (d.uiName || '') + ' ' + (d.description || '')).toLowerCase();
-        return n.includes('author') || n.includes('writer') || n.includes('byline');
-      });
-      if (authorDim) foundDim = authorDim.apiName;
-    } catch (_) {}
-
-    // Fall back to common guesses if metadata discovery fails
-    const dimsToTry = foundDim
-      ? [foundDim]
-      : ['customUser:author', 'customEvent:author', 'customUser:Author', 'customEvent:Author', 'customUser:writer', 'customEvent:writer'];
-
-    for (const dim of dimsToTry) {
-      try { rows = await tryDimension(dim); } catch (_) { rows = []; }
+    for (const { dim, metric } of attempts) {
+      try { rows = await tryReport(dim, metric); } catch (_) { rows = []; }
       if (rows.length) break;
     }
     cache.set(k, rows, 300);
