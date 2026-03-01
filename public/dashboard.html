@@ -447,11 +447,13 @@ async function fetchStateNews() {
 async function fetchAuthors() {
   try {
     const res = await fetch('/api/top-authors');
-    const data = await res.json();
-    if (data.error) throw new Error(data.error);
+    const authors = await res.json();
+    if (authors.error) throw new Error(authors.error);
 
-    const html = (data.authors || []).map((a, i) => {
-      const initials = a.name.split(' ').map(w=>w[0]).join('').substring(0,2);
+    const maxViews = authors[0]?.views || 1;
+    const html = (authors || []).map((a, i) => {
+      const initials = a.name.split(' ').map(w=>w[0]).join('').substring(0,2).toUpperCase();
+      const pct = Math.round((a.views / maxViews) * 100);
       return `<div class="author-card">
         <div class="author-avatar">${initials}</div>
         <div style="flex:1">
@@ -464,11 +466,11 @@ async function fetchAuthors() {
               <div class="a-stat-lbl">Views</div>
             </div>
             <div>
-              <div class="a-stat-val">${(a.sessions||0).toLocaleString()}</div>
+              <div class="a-stat-val">${(a.articles||0).toLocaleString()}</div>
               <div class="a-stat-lbl">Sessions</div>
             </div>
           </div>
-          <div class="author-bar"><div class="author-bar-fill" style="width:${a.pct||0}%"></div></div>
+          <div class="author-bar"><div class="author-bar-fill" style="width:${pct}%"></div></div>
         </div>
       </div>`;
     }).join('');
