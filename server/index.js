@@ -149,14 +149,20 @@ app.get('/api/top-news', requireAuth, async (req, res) => {
         metrics: [{ name: 'activeUsers' }],
         dimensions: [{ name: 'unifiedScreenName' }],
         orderBys: [{ metric: { metricName: 'activeUsers' }, desc: true }],
-        limit: 10
+        limit: 50
       }
     });
-    const rows = (r.data.rows || []).map((row, i) => ({
-      rank: i + 1,
-      title: row.dimensionValues[0].value,
-      activeUsers: parseInt(row.metricValues[0].value)
-    }));
+    const rows = (r.data.rows || [])
+      .filter(row => {
+        const t = row.dimensionValues[0].value;
+        return t && t !== '(other)' && t !== '(not set)' && t.trim() !== '';
+      })
+      .slice(0, 10)
+      .map((row, i) => ({
+        rank: i + 1,
+        title: row.dimensionValues[0].value,
+        activeUsers: parseInt(row.metricValues[0].value)
+      }));
     cache.set(k, rows, 5);
     res.json(rows);
   } catch (e) { res.status(500).json({ error: e.message }); }
