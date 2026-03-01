@@ -138,15 +138,14 @@ app.get('/api/realtime', requireAuth, async (req, res) => {
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
-// ── API: Top 10 News (Today's pageviews — live order) ───
+// ── API: Top 10 News (Realtime — last 30 min pageviews) ───
 app.get('/api/top-news', requireAuth, async (req, res) => {
   try {
     const k = 'top10';
     if (cache.has(k)) return res.json(cache.get(k));
-    const r = await ga(req.user).properties.runReport({
+    const r = await ga(req.user).properties.runRealtimeReport({
       property: PROP(),
       requestBody: {
-        dateRanges: [{ startDate: 'today', endDate: 'today' }],
         metrics: [{ name: 'screenPageViews' }, { name: 'activeUsers' }],
         dimensions: [{ name: 'unifiedScreenName' }],
         orderBys: [{ metric: { metricName: 'screenPageViews' }, desc: true }],
