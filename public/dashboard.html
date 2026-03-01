@@ -293,7 +293,7 @@
 
 <footer>
   <span>© 2026 NewsAnalytics — Powered by Google Analytics 4</span>
-  <span>Auto-refresh: <strong style="color:var(--text)">Realtime 10s · Reports 5min</strong></span>
+  <span>Auto-refresh: <strong style="color:var(--text)">Realtime 5s · Reports 5min</strong></span>
   <span>Regions: <strong style="color:var(--text)">MP · CG · RJ</strong></span>
 </footer>
 
@@ -487,8 +487,8 @@ fetchTopNews();
 fetchStateNews();
 fetchAuthors();
 
-setInterval(fetchRealtime, 10000);        // every 10s
-setInterval(fetchTopNews, 10000);         // every 10s
+setInterval(fetchRealtime, 5000);         // every 5s
+setInterval(fetchTopNews, 5000);          // every 5s
 setInterval(fetchStateNews, 5 * 60000);  // every 5 min
 setInterval(fetchAuthors, 5 * 60000);    // every 5 min
 </script>

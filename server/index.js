@@ -133,7 +133,7 @@ app.get('/api/realtime', requireAuth, async (req, res) => {
       newPerMin: Math.round(parseInt(today[0]?.value || 0) / mins),
       sparkline
     };
-    cache.set(k, d, 10);
+    cache.set(k, d, 5);
     res.json(d);
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
@@ -157,7 +157,7 @@ app.get('/api/top-news', requireAuth, async (req, res) => {
       title: row.dimensionValues[0].value,
       activeUsers: parseInt(row.metricValues[0].value)
     }));
-    cache.set(k, rows, 10);
+    cache.set(k, rows, 5);
     res.json(rows);
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
