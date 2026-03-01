@@ -215,24 +215,21 @@ app.get('/api/top-authors', requireAuth, async (req, res) => {
   try {
     const k = 'authors';
     if (cache.has(k)) return res.json(cache.get(k));
-    const now = new Date();
-    const startOfMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-01`;
-
-    const tryReport = async (dim, metric, orderMetric) => {
+    const tryReport = async (dim, metric, startDate) => {
       const r = await ga(req.user).properties.runReport({
         property: PROP(),
         requestBody: {
-          dateRanges: [{ startDate: startOfMonth, endDate: 'today' }],
-          metrics: [{ name: metric }, { name: 'sessions' }],
+          dateRanges: [{ startDate, endDate: 'today' }],
+          metrics: [{ name: metric }, { name: 'screenPageViews' }],
           dimensions: [{ name: dim }],
-          orderBys: [{ metric: { metricName: orderMetric || metric }, desc: true }],
-          limit: 20
+          orderBys: [{ metric: { metricName: metric }, desc: true }],
+          limit: 50
         }
       });
       return (r.data.rows || [])
         .filter(row => {
           const n = row.dimensionValues[0].value;
-          return n && n !== '(not set)' && n !== '(not provided)' && n.trim() !== '';
+          return n && n !== '(not set)' && n !== '(not provided)' && n !== '(other)' && n.trim() !== '';
         })
         .slice(0, 6)
         .map((row, i) => ({
@@ -243,25 +240,43 @@ app.get('/api/top-authors', requireAuth, async (req, res) => {
         }));
     };
 
-    // Ordered attempts: event-scoped dim with eventCount first (most reliable),
-    // then screenPageViews fallback, then user-scoped guesses
+    // Try combinations: event-scoped with eventCount, then screenPageViews, across different date ranges
     const attempts = [
-      { dim: 'customEvent:author',  metric: 'eventCount' },
-      { dim: 'customEvent:author',  metric: 'screenPageViews' },
-      { dim: 'customEvent:Author',  metric: 'eventCount' },
-      { dim: 'customUser:author',   metric: 'screenPageViews' },
-      { dim: 'customUser:Author',   metric: 'screenPageViews' },
-      { dim: 'customEvent:writer',  metric: 'eventCount' },
-      { dim: 'customUser:writer',   metric: 'screenPageViews' },
+      { dim: 'customEvent:author', metric: 'eventCount',      startDate: '30daysAgo' },
+      { dim: 'customEvent:author', metric: 'screenPageViews', startDate: '30daysAgo' },
+      { dim: 'customEvent:author', metric: 'eventCount',      startDate: '90daysAgo' },
+      { dim: 'customUser:author',  metric: 'screenPageViews', startDate: '30daysAgo' },
+      { dim: 'customUser:author',  metric: 'screenPageViews', startDate: '90daysAgo' },
     ];
 
     let rows = [];
-    for (const { dim, metric } of attempts) {
-      try { rows = await tryReport(dim, metric); } catch (_) { rows = []; }
+    for (const { dim, metric, startDate } of attempts) {
+      try { rows = await tryReport(dim, metric, startDate); } catch (_) { rows = []; }
       if (rows.length) break;
     }
     cache.set(k, rows, 300);
     res.json(rows);
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+// ── API: Debug Authors (raw GA4 response) ─────────────────
+app.get('/api/debug-authors', requireAuth, async (req, res) => {
+  try {
+    const r = await ga(req.user).properties.runReport({
+      property: PROP(),
+      requestBody: {
+        dateRanges: [{ startDate: '90daysAgo', endDate: 'today' }],
+        metrics: [{ name: 'eventCount' }, { name: 'screenPageViews' }],
+        dimensions: [{ name: 'customEvent:author' }],
+        orderBys: [{ metric: { metricName: 'eventCount' }, desc: true }],
+        limit: 20
+      }
+    });
+    res.json({ rowCount: r.data.rowCount, rows: (r.data.rows || []).map(row => ({
+      author: row.dimensionValues[0].value,
+      eventCount: row.metricValues[0].value,
+      pageViews: row.metricValues[1].value
+    }))});
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
