@@ -138,17 +138,18 @@ app.get('/api/realtime', requireAuth, async (req, res) => {
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
-// ── API: Top 10 News (Realtime — last 30 min active users) ───
+// ── API: Top 10 News (Today's pageviews — live order) ───
 app.get('/api/top-news', requireAuth, async (req, res) => {
   try {
     const k = 'top10';
     if (cache.has(k)) return res.json(cache.get(k));
-    const r = await ga(req.user).properties.runRealtimeReport({
+    const r = await ga(req.user).properties.runReport({
       property: PROP(),
       requestBody: {
-        metrics: [{ name: 'activeUsers' }],
+        dateRanges: [{ startDate: 'today', endDate: 'today' }],
+        metrics: [{ name: 'screenPageViews' }, { name: 'activeUsers' }],
         dimensions: [{ name: 'unifiedScreenName' }],
-        orderBys: [{ metric: { metricName: 'activeUsers' }, desc: true }],
+        orderBys: [{ metric: { metricName: 'screenPageViews' }, desc: true }],
         limit: 50
       }
     });
@@ -161,7 +162,8 @@ app.get('/api/top-news', requireAuth, async (req, res) => {
       .map((row, i) => ({
         rank: i + 1,
         title: row.dimensionValues[0].value,
-        activeUsers: parseInt(row.metricValues[0].value)
+        pageViews: parseInt(row.metricValues[0].value),
+        activeUsers: parseInt(row.metricValues[1].value)
       }));
     cache.set(k, rows, 5);
     res.json(rows);
