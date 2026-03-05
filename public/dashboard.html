@@ -184,48 +184,12 @@
   .cat-news-meta { display: flex; gap: 10px; font-family: 'IBM Plex Mono', monospace; font-size: 0.65rem; color: var(--muted); }
   .cat-news-views { color: var(--accent2); }
 
-  /* Authors */
-  .authors-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 1.2rem; margin-bottom: 2rem; }
-  .author-card {
-    background: var(--surface); border: 1px solid var(--border); border-radius: 14px;
-    padding: 1.5rem; display: flex; gap: 1rem; align-items: flex-start;
-    transition: border-color 0.25s, transform 0.25s; position: relative; overflow: hidden;
-  }
-  .author-card::before { content: ''; position: absolute; top: 0; left: 0; width: 3px; height: 100%; opacity: 0; transition: opacity 0.25s; }
-  .author-card:nth-child(1)::before { background: var(--accent); }
-  .author-card:nth-child(2)::before { background: var(--accent2); }
-  .author-card:nth-child(3)::before { background: var(--accent3); }
-  .author-card:nth-child(4)::before { background: #7c9eff; }
-  .author-card:hover { border-color: rgba(255,59,59,0.4); transform: translateY(-2px); }
-  .author-card:hover::before { opacity: 1; }
-  .author-avatar {
-    width: 48px; height: 48px; border-radius: 50%; background: var(--surface2);
-    border: 2px solid var(--border); display: flex; align-items: center; justify-content: center;
-    font-family: 'Bebas Neue', sans-serif; font-size: 1.2rem; flex-shrink: 0;
-  }
-  .author-card:nth-child(1) .author-avatar { color: var(--accent); }
-  .author-card:nth-child(2) .author-avatar { color: var(--accent2); }
-  .author-card:nth-child(3) .author-avatar { color: var(--accent3); }
-  .author-card:nth-child(4) .author-avatar { color: #7c9eff; }
-  .author-rank-badge { position: absolute; top: 12px; right: 14px; font-family: 'Bebas Neue', sans-serif; font-size: 1.8rem; color: var(--border); line-height: 1; }
-  .author-name { font-weight: 700; font-size: 0.95rem; margin-bottom: 3px; }
-  .author-beat { font-family: 'IBM Plex Mono', monospace; font-size: 0.65rem; color: var(--muted); letter-spacing: 1px; text-transform: uppercase; margin-bottom: 10px; }
-  .author-stats { display: flex; gap: 16px; }
-  .a-stat-val { font-family: 'Bebas Neue', sans-serif; font-size: 1.2rem; line-height: 1; }
-  .a-stat-lbl { font-family: 'IBM Plex Mono', monospace; font-size: 0.6rem; color: var(--muted); letter-spacing: 1px; }
-  .author-bar { height: 3px; background: var(--border); border-radius: 2px; margin-top: 12px; overflow: hidden; }
-  .author-bar-fill { height: 100%; border-radius: 2px; transition: width 1.2s ease; }
-  .author-card:nth-child(1) .author-bar-fill { background: linear-gradient(90deg, var(--accent), #ff7a7a); }
-  .author-card:nth-child(2) .author-bar-fill { background: linear-gradient(90deg, var(--accent2), #ffd460); }
-  .author-card:nth-child(3) .author-bar-fill { background: linear-gradient(90deg, var(--accent3), #7ffce0); }
-  .author-card:nth-child(4) .author-bar-fill { background: linear-gradient(90deg, #7c9eff, #c0cfff); }
-
   .loading-row td { padding: 20px; text-align: center; color: var(--muted); font-family: 'IBM Plex Mono', monospace; font-size: 0.75rem; letter-spacing: 2px; }
 
   footer { border-top: 1px solid var(--border); padding: 1.5rem 2rem; display: flex; align-items: center; justify-content: space-between; font-family: 'IBM Plex Mono', monospace; font-size: 0.65rem; color: var(--muted); letter-spacing: 1px; flex-wrap: wrap; gap: 1rem; }
 
   @media (max-width: 900px) { .cat-grid { grid-template-columns: 1fr; } .rt-count { font-size: 3.5rem; } }
-  @media (max-width: 600px) { main { padding: 1rem; } .authors-grid { grid-template-columns: 1fr; } }
+  @media (max-width: 600px) { main { padding: 1rem; } }
 </style>
 </head>
 <body>
@@ -346,15 +310,6 @@
     <div style="padding:20px;text-align:center;color:var(--muted);font-size:0.75rem;font-family:monospace;grid-column:1/-1">Loading categories...</div>
   </div>
 
-  <!-- Top Authors -->
-  <div class="sec-hd">
-    <h2>Top Writers</h2>
-    <span class="tag tag-yellow">This Month · GA4 Custom Dim</span>
-    <span class="last-updated" id="authors-updated"></span>
-  </div>
-  <div class="authors-grid" id="authors-grid">
-    <div style="color:var(--muted);font-family:monospace;font-size:0.75rem;padding:1rem">Loading authors...</div>
-  </div>
 </main>
 
 <footer>
@@ -652,42 +607,6 @@ async function fetchCategoryNews(slug) {
   }
 }
 
-// ── Fetch Authors ─────────────────────────────────────────────
-async function fetchAuthors() {
-  try {
-    const authors = await fetch('/api/top-authors').then(r => r.json());
-    if (authors.error) throw new Error(authors.error);
-    const maxViews = authors[0]?.views || 1;
-    const html = (authors || []).map((a, i) => {
-      const initials = a.name.split(' ').map(w=>w[0]).join('').substring(0,2).toUpperCase();
-      const pct = Math.round((a.views / maxViews) * 100);
-      return `<div class="author-card">
-        <div class="author-avatar">${initials}</div>
-        <div style="flex:1">
-          <div class="author-rank-badge">#${i+1}</div>
-          <div class="author-name">${a.name}</div>
-          <div class="author-beat">Author</div>
-          <div class="author-stats">
-            <div>
-              <div class="a-stat-val">${(a.views||0).toLocaleString('en-IN')}</div>
-              <div class="a-stat-lbl">Events</div>
-            </div>
-            <div>
-              <div class="a-stat-val">${(a.articles||0).toLocaleString()}</div>
-              <div class="a-stat-lbl">Views</div>
-            </div>
-          </div>
-          <div class="author-bar"><div class="author-bar-fill" style="width:${pct}%"></div></div>
-        </div>
-      </div>`;
-    }).join('');
-    document.getElementById('authors-grid').innerHTML = html || '<div style="color:var(--muted);font-family:monospace;font-size:0.75rem;padding:1rem">No author data — configure <code>author</code> as a custom dimension in GA4.</div>';
-    document.getElementById('authors-updated').textContent = 'Updated ' + timeLabel();
-  } catch (e) {
-    showError(e.message);
-    document.getElementById('authors-grid').innerHTML = `<div style="color:var(--accent);font-family:monospace;font-size:0.75rem;padding:1rem">Error: ${e.message}</div>`;
-  }
-}
 
 // ── Dashboard Polling ────────────────────────────────────────
 let pollIntervals = [];
@@ -713,14 +632,12 @@ function startDashboard() {
   fetchRealtime();
   fetchTopNews();
   fetchCategories();
-  fetchAuthors();
 
   // Polling
   pollIntervals.push(setInterval(fetchRealtime, 15000));
   topNewsInterval = setInterval(fetchTopNews, 30000);
   pollIntervals.push(topNewsInterval);
   pollIntervals.push(setInterval(fetchCategories, 5 * 60000));
-  pollIntervals.push(setInterval(fetchAuthors, 5 * 60000));
 }
 </script>
 </body>
