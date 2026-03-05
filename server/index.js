@@ -42,12 +42,29 @@ passport.deserializeUser((u, done) => done(null, u));
 
 const requireAuth = (req, res, next) => req.isAuthenticated() ? next() : res.status(401).json({ error: 'Not authenticated' });
 
+// Requires both auth AND a selected property
+const requireProperty = (req, res, next) => {
+  if (!req.isAuthenticated()) return res.status(401).json({ error: 'Not authenticated' });
+  if (!req.session.propertyId) return res.status(400).json({ error: 'No property selected', needsProperty: true });
+  next();
+};
+
 function ga(user) {
   const auth = new google.auth.OAuth2(process.env.GOOGLE_CLIENT_ID, process.env.GOOGLE_CLIENT_SECRET);
   auth.setCredentials({ access_token: user.accessToken });
   return google.analyticsdata({ version: 'v1beta', auth });
 }
-const PROP = () => `properties/${process.env.GA4_PROPERTY_ID}`;
+
+function gaAdmin(user) {
+  const auth = new google.auth.OAuth2(process.env.GOOGLE_CLIENT_ID, process.env.GOOGLE_CLIENT_SECRET);
+  auth.setCredentials({ access_token: user.accessToken });
+  return google.analyticsadmin({ version: 'v1beta', auth });
+}
+
+// Dynamic property from session, fallback to env var for local dev
+const PROP = (req) => `properties/${req.session.propertyId || process.env.GA4_PROPERTY_ID}`;
+// Cache key scoped to property so users don't see each other's data
+const CK = (req, key) => `${req.session.propertyId || 'default'}_${key}`;
 
 // ── Auth Routes ───────────────────────────────────────────
 app.get('/auth/google', passport.authenticate('google', {
@@ -60,13 +77,61 @@ app.get('/auth/google/callback',
 app.get('/auth/logout', (req, res) => req.logout(() => res.redirect('/')));
 app.get('/auth/me', (req, res) => {
   if (!req.isAuthenticated()) return res.json({ loggedIn: false });
-  res.json({ loggedIn: true, name: req.user.name, email: req.user.email, photo: req.user.photo });
+  res.json({
+    loggedIn: true,
+    name: req.user.name,
+    email: req.user.email,
+    photo: req.user.photo,
+    propertyId: req.session.propertyId || null,
+    propertyName: req.session.propertyName || null
+  });
+});
+
+// ── API: List GA4 Properties accessible to logged-in user ─
+app.get('/api/properties', requireAuth, async (req, res) => {
+  try {
+    const admin = gaAdmin(req.user);
+    const response = await admin.accountSummaries.list({ pageSize: 200 });
+    const properties = [];
+    for (const account of (response.data.accountSummaries || [])) {
+      for (const prop of (account.propertySummaries || [])) {
+        properties.push({
+          propertyId: prop.property.replace('properties/', ''),
+          displayName: prop.displayName,
+          account: account.displayName
+        });
+      }
+    }
+    res.json(properties);
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+// ── API: Select a GA4 Property (stores in session) ────────
+app.post('/api/select-property', requireAuth, async (req, res) => {
+  try {
+    const { propertyId, displayName } = req.body;
+    if (!propertyId) return res.status(400).json({ error: 'propertyId required' });
+
+    // Validate user actually has access to this property
+    const admin = gaAdmin(req.user);
+    const response = await admin.accountSummaries.list({ pageSize: 200 });
+    const allIds = (response.data.accountSummaries || [])
+      .flatMap(a => (a.propertySummaries || []).map(p => p.property.replace('properties/', '')));
+
+    if (!allIds.includes(String(propertyId))) {
+      return res.status(403).json({ error: 'Access denied to this property' });
+    }
+
+    req.session.propertyId = String(propertyId);
+    req.session.propertyName = displayName || propertyId;
+    res.json({ ok: true, propertyId: req.session.propertyId, propertyName: req.session.propertyName });
+  } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
 // ── API: Realtime Users ───────────────────────────────────
-app.get('/api/realtime', requireAuth, async (req, res) => {
+app.get('/api/realtime', requireProperty, async (req, res) => {
   try {
-    const k = 'rt';
+    const k = CK(req, 'rt');
     if (cache.has(k)) return res.json(cache.get(k));
     const a = ga(req.user);
 
@@ -74,30 +139,26 @@ app.get('/api/realtime', requireAuth, async (req, res) => {
     const startOfMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-01`;
 
     const [rtTotal, rtMinutes, todayStats, monthStats] = await Promise.all([
-      // No dimension = GA4's true deduplicated "users right now" count
       a.properties.runRealtimeReport({
-        property: PROP(),
+        property: PROP(req),
         requestBody: { metrics: [{ name: 'activeUsers' }] }
       }),
-      // minutesAgo = last 30 min breakdown for sparkline (matches GA4 realtime chart)
       a.properties.runRealtimeReport({
-        property: PROP(),
+        property: PROP(req),
         requestBody: {
           metrics: [{ name: 'activeUsers' }],
           dimensions: [{ name: 'minutesAgo' }]
         }
       }),
-      // Today's data — used for per-minute session/pageview counts
       a.properties.runReport({
-        property: PROP(),
+        property: PROP(req),
         requestBody: {
           dateRanges: [{ startDate: 'today', endDate: 'today' }],
           metrics: [{ name: 'sessions' }, { name: 'screenPageViews' }]
         }
       }),
-      // Current month — bounce rate and avg session duration
       a.properties.runReport({
-        property: PROP(),
+        property: PROP(req),
         requestBody: {
           dateRanges: [{ startDate: startOfMonth, endDate: 'today' }],
           metrics: [{ name: 'bounceRate' }, { name: 'averageSessionDuration' }]
@@ -105,20 +166,14 @@ app.get('/api/realtime', requireAuth, async (req, res) => {
       })
     ]);
 
-    // True active users — matches GA4 "Users in last 30 min"
     const active = parseInt(rtTotal.data.rows?.[0]?.metricValues?.[0]?.value || 0);
-
-    // Build 30-point sparkline from minutesAgo (index 0 = now, 29 = 29 min ago)
     const sparkline = Array(30).fill(0);
     (rtMinutes.data.rows || []).forEach(row => {
       const minAgo = parseInt(row.dimensionValues[0].value);
       if (minAgo >= 0 && minAgo < 30) sparkline[29 - minAgo] = parseInt(row.metricValues[0].value || 0);
     });
-
-    // Pageviews per minute from last minute's realtime data
     const lastMinRow = (rtMinutes.data.rows || []).find(r => r.dimensionValues[0].value === '0');
     const pvPerMin = parseInt(lastMinRow?.metricValues?.[0]?.value || 0);
-
     const today = todayStats.data.rows?.[0]?.metricValues || [];
     const month = monthStats.data.rows?.[0]?.metricValues || [];
     const totalPv = parseInt(today[1]?.value || 0);
@@ -139,12 +194,12 @@ app.get('/api/realtime', requireAuth, async (req, res) => {
 });
 
 // ── API: Top 10 News (Realtime — last 30 min pageviews) ───
-app.get('/api/top-news', requireAuth, async (req, res) => {
+app.get('/api/top-news', requireProperty, async (req, res) => {
   try {
-    const k = 'top10';
+    const k = CK(req, 'top10');
     if (cache.has(k)) return res.json(cache.get(k));
     const r = await ga(req.user).properties.runRealtimeReport({
-      property: PROP(),
+      property: PROP(req),
       requestBody: {
         metrics: [{ name: 'screenPageViews' }, { name: 'activeUsers' }],
         dimensions: [{ name: 'unifiedScreenName' }],
@@ -169,55 +224,90 @@ app.get('/api/top-news', requireAuth, async (req, res) => {
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
-// ── API: State News (Last 7 days) ─────────────────────────
-// Supports both old short paths (/mp/, /cg/, /rj/) and new full paths (/state/madhya-pradesh/ etc.)
-const STATE_PATH_MAP = {
-  mp: ['/mp/', '/state/madhya-pradesh/'],
-  cg: ['/cg/', '/state/chhattisgarh/'],
-  rj: ['/rj/', '/state/rajasthan/']
-};
-app.get('/api/state-news/:state', requireAuth, async (req, res) => {
+// ── API: Top Categories (7-day pageviews, dynamic) ────────
+app.get('/api/categories', requireProperty, async (req, res) => {
   try {
-    const state = req.params.state.toLowerCase();
-    const k = `state_${state}`;
+    const k = CK(req, 'categories');
     if (cache.has(k)) return res.json(cache.get(k));
-    const paths = STATE_PATH_MAP[state] || [`/${state}/`];
     const r = await ga(req.user).properties.runReport({
-      property: PROP(),
+      property: PROP(req),
+      requestBody: {
+        dateRanges: [{ startDate: '7daysAgo', endDate: 'today' }],
+        metrics: [{ name: 'screenPageViews' }],
+        dimensions: [{ name: 'pagePath' }],
+        orderBys: [{ metric: { metricName: 'screenPageViews' }, desc: true }],
+        limit: 5000
+      }
+    });
+
+    // Extract top-level path segment as category, sum views per category
+    const catMap = {};
+    for (const row of (r.data.rows || [])) {
+      const p = row.dimensionValues[0].value;
+      const seg = p.split('/').filter(Boolean)[0];
+      if (!seg || seg.length < 2) continue;
+      // Skip non-category paths
+      if (['author', 'reader', 'newsletter', 'page', 'tag', 'search', 'amp'].includes(seg)) continue;
+      catMap[seg] = (catMap[seg] || 0) + parseInt(row.metricValues[0].value || 0);
+    }
+
+    const categories = Object.entries(catMap)
+      .sort((a, b) => b[1] - a[1])
+      .slice(0, 6)
+      .map(([slug, views]) => ({
+        slug,
+        displayName: slug.replace(/-/g, ' ').replace(/\b\w/g, c => c.toUpperCase()),
+        views
+      }));
+
+    cache.set(k, categories, 300);
+    res.json(categories);
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+// ── API: Category News (Last 7 days) ──────────────────────
+app.get('/api/category-news/:slug', requireProperty, async (req, res) => {
+  try {
+    const slug = req.params.slug.toLowerCase();
+    const k = CK(req, `cat_${slug}`);
+    if (cache.has(k)) return res.json(cache.get(k));
+    const r = await ga(req.user).properties.runReport({
+      property: PROP(req),
       requestBody: {
         dateRanges: [{ startDate: '7daysAgo', endDate: 'today' }],
         metrics: [{ name: 'screenPageViews' }],
         dimensions: [{ name: 'pageTitle' }, { name: 'pagePath' }],
         dimensionFilter: {
-          orGroup: {
-            expressions: paths.map(p => ({
-              filter: { fieldName: 'pagePath', stringFilter: { matchType: 'CONTAINS', value: p } }
-            }))
-          }
+          filter: { fieldName: 'pagePath', stringFilter: { matchType: 'CONTAINS', value: `/${slug}/` } }
         },
         orderBys: [{ metric: { metricName: 'screenPageViews' }, desc: true }],
         limit: 5
       }
     });
-    const rows = (r.data.rows || []).map((row, i) => ({
-      rank: i + 1,
-      title: row.dimensionValues[0].value,
-      path: row.dimensionValues[1].value,
-      views: parseInt(row.metricValues[0].value)
-    }));
+    const rows = (r.data.rows || [])
+      .filter(row => {
+        const t = row.dimensionValues[0].value;
+        return t && t !== '(not set)' && t.trim() !== '';
+      })
+      .map((row, i) => ({
+        rank: i + 1,
+        title: row.dimensionValues[0].value,
+        path: row.dimensionValues[1].value,
+        views: parseInt(row.metricValues[0].value)
+      }));
     cache.set(k, rows, 300);
     res.json(rows);
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
 // ── API: Top Authors (Current Month) ─────────────────────
-app.get('/api/top-authors', requireAuth, async (req, res) => {
+app.get('/api/top-authors', requireProperty, async (req, res) => {
   try {
-    const k = 'authors';
+    const k = CK(req, 'authors');
     if (cache.has(k)) return res.json(cache.get(k));
     const tryReport = async (dim, metric, startDate) => {
       const r = await ga(req.user).properties.runReport({
-        property: PROP(),
+        property: PROP(req),
         requestBody: {
           dateRanges: [{ startDate, endDate: 'today' }],
           metrics: [{ name: metric }, { name: 'screenPageViews' }],
@@ -240,7 +330,6 @@ app.get('/api/top-authors', requireAuth, async (req, res) => {
         }));
     };
 
-    // Try combinations: event-scoped with eventCount, then screenPageViews, across different date ranges
     const attempts = [
       { dim: 'customEvent:author', metric: 'eventCount',      startDate: '30daysAgo' },
       { dim: 'customEvent:author', metric: 'screenPageViews', startDate: '30daysAgo' },
@@ -259,31 +348,10 @@ app.get('/api/top-authors', requireAuth, async (req, res) => {
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
-// ── API: Debug Authors (raw GA4 response) ─────────────────
-app.get('/api/debug-authors', requireAuth, async (req, res) => {
-  try {
-    const r = await ga(req.user).properties.runReport({
-      property: PROP(),
-      requestBody: {
-        dateRanges: [{ startDate: '90daysAgo', endDate: 'today' }],
-        metrics: [{ name: 'eventCount' }, { name: 'screenPageViews' }],
-        dimensions: [{ name: 'customEvent:author' }],
-        orderBys: [{ metric: { metricName: 'eventCount' }, desc: true }],
-        limit: 20
-      }
-    });
-    res.json({ rowCount: r.data.rowCount, rows: (r.data.rows || []).map(row => ({
-      author: row.dimensionValues[0].value,
-      eventCount: row.metricValues[0].value,
-      pageViews: row.metricValues[1].value
-    }))});
-  } catch (e) { res.status(500).json({ error: e.message }); }
-});
-
 // ── API: GA4 Custom Dimensions (diagnostic) ───────────────
-app.get('/api/ga4-dims', requireAuth, async (req, res) => {
+app.get('/api/ga4-dims', requireProperty, async (req, res) => {
   try {
-    const meta = await ga(req.user).properties.getMetadata({ name: `${PROP()}/metadata` });
+    const meta = await ga(req.user).properties.getMetadata({ name: `${PROP(req)}/metadata` });
     const custom = (meta.data.dimensions || [])
       .filter(d => d.apiName && d.apiName.startsWith('custom'))
       .map(d => ({ apiName: d.apiName, uiName: d.uiName, description: d.description }));

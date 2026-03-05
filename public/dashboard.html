@@ -35,6 +35,20 @@
   }
   .live-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--online); animation: pulse 1.5s ease infinite; }
   @keyframes pulse { 0%,100%{opacity:1;transform:scale(1)} 50%{opacity:.4;transform:scale(.7)} }
+
+  /* Property switcher in header */
+  .property-switcher {
+    display: flex; align-items: center; gap: 8px; cursor: pointer;
+    font-family: 'IBM Plex Mono', monospace; font-size: 0.7rem;
+    color: var(--text); background: var(--surface2);
+    border: 1px solid var(--border); border-radius: 8px;
+    padding: 5px 12px; transition: border-color 0.2s;
+    max-width: 220px; overflow: hidden;
+  }
+  .property-switcher:hover { border-color: var(--accent3); }
+  .property-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .switch-icon { color: var(--muted); flex-shrink: 0; }
+
   .user-info { display: flex; align-items: center; gap: 10px; }
   .user-avatar { width: 30px; height: 30px; border-radius: 50%; border: 1px solid var(--border); }
   .user-name { font-size: 0.8rem; color: var(--muted); }
@@ -48,6 +62,32 @@
   .header-time { font-family: 'IBM Plex Mono', monospace; font-size: 0.75rem; color: var(--muted); }
 
   main { padding: 2rem; max-width: 1400px; margin: 0 auto; }
+
+  /* Property picker modal */
+  .modal-overlay {
+    position: fixed; inset: 0; background: rgba(0,0,0,0.85);
+    backdrop-filter: blur(8px); z-index: 500;
+    display: flex; align-items: center; justify-content: center;
+    padding: 1rem;
+  }
+  .modal-overlay.hidden { display: none; }
+  .modal-box {
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: 20px; padding: 2.5rem; width: 100%; max-width: 560px;
+    max-height: 80vh; overflow-y: auto;
+  }
+  .modal-title { font-family: 'Bebas Neue', sans-serif; font-size: 2rem; letter-spacing: 2px; margin-bottom: 0.5rem; }
+  .modal-sub { font-size: 0.85rem; color: var(--muted); margin-bottom: 2rem; }
+  .modal-loading { font-family: 'IBM Plex Mono', monospace; font-size: 0.75rem; color: var(--muted); letter-spacing: 2px; padding: 2rem 0; text-align: center; }
+  .property-list { display: flex; flex-direction: column; gap: 0.75rem; }
+  .property-item {
+    background: var(--surface2); border: 1px solid var(--border);
+    border-radius: 12px; padding: 1rem 1.25rem; cursor: pointer;
+    transition: border-color 0.2s, background 0.2s; display: flex; flex-direction: column; gap: 4px;
+  }
+  .property-item:hover { border-color: var(--accent3); background: rgba(0,212,170,0.05); }
+  .property-item-name { font-weight: 600; font-size: 0.92rem; }
+  .property-item-meta { font-family: 'IBM Plex Mono', monospace; font-size: 0.65rem; color: var(--muted); letter-spacing: 1px; }
 
   /* Loading skeleton */
   .skeleton { background: linear-gradient(90deg, var(--surface2) 25%, var(--border) 50%, var(--surface2) 75%); background-size: 200% 100%; animation: shimmer 1.5s infinite; border-radius: 6px; }
@@ -115,31 +155,27 @@
   .rank-2 .rank-num { color: var(--accent2); }
   .rank-3 .rank-num { color: var(--accent3); }
   .news-title { font-weight: 600; color: var(--text); max-width: 420px; line-height: 1.4; }
-  .news-path { font-family: 'IBM Plex Mono', monospace; font-size: 0.65rem; color: var(--muted); margin-top: 2px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 420px; }
-  .news-cat { font-family: 'IBM Plex Mono', monospace; font-size: 0.65rem; letter-spacing: 1px; padding: 3px 8px; border-radius: 4px; background: rgba(255,59,59,0.1); color: var(--accent); border: 1px solid rgba(255,59,59,0.2); white-space: nowrap; }
   .views-cell { font-family: 'IBM Plex Mono', monospace; font-size: 0.85rem; white-space: nowrap; }
   .views-cell span { color: var(--muted); font-size: 0.7rem; }
   .bar-wrap { width: 100px; height: 4px; background: var(--border); border-radius: 2px; overflow: hidden; margin-top: 4px; }
   .bar-fill { height: 100%; border-radius: 2px; background: linear-gradient(90deg, var(--accent) 0%, #ff7a7a 100%); }
 
-  /* State Grid */
-  .state-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1.5rem; margin-bottom: 2.5rem; }
-  .state-col { background: var(--surface); border: 1px solid var(--border); border-radius: 16px; overflow: hidden; }
-  .state-header { padding: 1.2rem 1.5rem; border-bottom: 1px solid var(--border); display: flex; align-items: center; justify-content: space-between; }
-  .state-name { font-family: 'Bebas Neue', sans-serif; font-size: 1.3rem; letter-spacing: 3px; }
-  .mp .state-name { color: #7c9eff; }
-  .cg .state-name { color: var(--accent3); }
-  .rj .state-name { color: var(--accent2); }
-  .state-full { font-size: 0.7rem; color: var(--muted); font-family: 'IBM Plex Mono', monospace; letter-spacing: 1px; }
-  .state-news-list { padding: 0.5rem 0; min-height: 80px; }
-  .state-news-item { padding: 0.9rem 1.5rem; border-bottom: 1px solid rgba(42,42,50,0.5); display: flex; gap: 1rem; align-items: flex-start; transition: background 0.2s; }
-  .state-news-item:hover { background: var(--surface2); }
-  .state-news-item:last-child { border-bottom: none; }
-  .state-rank { font-family: 'Bebas Neue', sans-serif; font-size: 1.1rem; color: var(--muted); min-width: 22px; line-height: 1.3; }
-  .state-news-content { flex: 1; }
-  .state-news-title { font-size: 0.82rem; font-weight: 600; line-height: 1.4; color: var(--text); margin-bottom: 4px; }
-  .state-meta { display: flex; gap: 10px; font-family: 'IBM Plex Mono', monospace; font-size: 0.65rem; color: var(--muted); }
-  .state-views { color: var(--accent2); }
+  /* Category Grid */
+  .cat-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1.5rem; margin-bottom: 2.5rem; }
+  .cat-col { background: var(--surface); border: 1px solid var(--border); border-radius: 16px; overflow: hidden; }
+  .cat-header { padding: 1.2rem 1.5rem; border-bottom: 1px solid var(--border); display: flex; align-items: center; justify-content: space-between; }
+  .cat-name { font-family: 'Bebas Neue', sans-serif; font-size: 1.3rem; letter-spacing: 3px; }
+  .cat-meta { font-size: 0.7rem; color: var(--muted); font-family: 'IBM Plex Mono', monospace; letter-spacing: 1px; }
+  .cat-views-badge { font-family: 'IBM Plex Mono', monospace; font-size: 0.65rem; color: var(--accent2); }
+  .cat-news-list { padding: 0.5rem 0; min-height: 80px; }
+  .cat-news-item { padding: 0.9rem 1.5rem; border-bottom: 1px solid rgba(42,42,50,0.5); display: flex; gap: 1rem; align-items: flex-start; transition: background 0.2s; }
+  .cat-news-item:hover { background: var(--surface2); }
+  .cat-news-item:last-child { border-bottom: none; }
+  .cat-rank { font-family: 'Bebas Neue', sans-serif; font-size: 1.1rem; color: var(--muted); min-width: 22px; line-height: 1.3; }
+  .cat-news-content { flex: 1; }
+  .cat-news-title { font-size: 0.82rem; font-weight: 600; line-height: 1.4; color: var(--text); margin-bottom: 4px; }
+  .cat-news-meta { display: flex; gap: 10px; font-family: 'IBM Plex Mono', monospace; font-size: 0.65rem; color: var(--muted); }
+  .cat-news-views { color: var(--accent2); }
 
   /* Authors */
   .authors-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 1.2rem; margin-bottom: 2rem; }
@@ -181,15 +217,31 @@
 
   footer { border-top: 1px solid var(--border); padding: 1.5rem 2rem; display: flex; align-items: center; justify-content: space-between; font-family: 'IBM Plex Mono', monospace; font-size: 0.65rem; color: var(--muted); letter-spacing: 1px; flex-wrap: wrap; gap: 1rem; }
 
-  @media (max-width: 900px) { .state-grid { grid-template-columns: 1fr; } .rt-count { font-size: 3.5rem; } }
+  @media (max-width: 900px) { .cat-grid { grid-template-columns: 1fr; } .rt-count { font-size: 3.5rem; } }
   @media (max-width: 600px) { main { padding: 1rem; } .authors-grid { grid-template-columns: 1fr; } }
 </style>
 </head>
 <body>
+
+<!-- Property Picker Modal -->
+<div class="modal-overlay" id="property-modal">
+  <div class="modal-box">
+    <div class="modal-title">Select Property</div>
+    <div class="modal-sub">Choose the GA4 property you want to monitor.</div>
+    <div id="property-list-wrap">
+      <div class="modal-loading">⬤ LOADING YOUR PROPERTIES...</div>
+    </div>
+  </div>
+</div>
+
 <header>
   <div class="logo">News<span>Analytics</span></div>
   <div class="header-right">
-    <div class="live-badge"><div class="live-dot"></div>Live</div>
+    <div class="live-badge"><div class="live-dot"></div>GA4 LIVE</div>
+    <div class="property-switcher" id="property-switcher" onclick="openPropertyPicker()" title="Switch property">
+      <span class="property-name" id="property-name-label">—</span>
+      <span class="switch-icon">⇅</span>
+    </div>
     <div class="user-info" id="user-info"></div>
     <a href="/auth/logout" class="logout-btn">Logout</a>
     <div class="header-time" id="htime">--:--:--</div>
@@ -204,7 +256,7 @@
     <div>
       <div class="rt-label">▸ Active Users Right Now</div>
       <div class="rt-count"><span id="rt-num">—</span></div>
-      <div class="rt-sub">readers on your website at this moment</div>
+      <div class="rt-sub">live readers on your website</div>
     </div>
     <div class="rt-stats">
       <div class="rt-stat">
@@ -217,15 +269,15 @@
       </div>
       <div class="rt-stat">
         <div class="rt-stat-val yellow" id="rt-bounce">—</div>
-        <div class="rt-stat-lbl">Bounce Rate</div>
+        <div class="rt-stat-lbl">Bounce Rate <small style="font-size:0.5em">(MTD)</small></div>
       </div>
       <div class="rt-stat">
         <div class="rt-stat-val" id="rt-avg">—</div>
-        <div class="rt-stat-lbl">Avg Time</div>
+        <div class="rt-stat-lbl">Avg Time <small style="font-size:0.5em">(MTD)</small></div>
       </div>
     </div>
     <div class="sparkline-wrap">
-      <div class="sparkline-label">ACTIVE USERS HISTORY</div>
+      <div class="sparkline-label">ACTIVE USERS — LAST 30 POLLS</div>
       <canvas id="spark" width="300" height="60"></canvas>
     </div>
   </div>
@@ -233,7 +285,7 @@
   <!-- Top 10 News -->
   <div class="sec-hd">
     <h2>Top 10 Stories</h2>
-    <span class="tag tag-red">Live Views</span>
+    <span class="tag tag-red">Last 30 Min · Live</span>
     <span class="last-updated" id="news-updated"></span>
   </div>
   <div class="news-table">
@@ -241,49 +293,31 @@
       <thead>
         <tr>
           <th>#</th>
-          <th>Page Title</th>
+          <th>Headline</th>
           <th>Active Users</th>
-          <th>Page Views</th>
-          <th>Share</th>
+          <th>Views (30 min)</th>
         </tr>
       </thead>
       <tbody id="top10-body">
-        <tr class="loading-row"><td colspan="5">⬤ LOADING REAL-TIME DATA...</td></tr>
+        <tr class="loading-row"><td colspan="4">⬤ LOADING REAL-TIME DATA...</td></tr>
       </tbody>
     </table>
   </div>
 
-  <!-- State Columns -->
+  <!-- Dynamic Category Columns -->
   <div class="sec-hd">
-    <h2>State Spotlight</h2>
+    <h2>Top Categories</h2>
     <span class="tag tag-teal">Last 7 Days</span>
-    <span class="last-updated" id="state-updated"></span>
+    <span class="last-updated" id="cat-updated"></span>
   </div>
-  <div class="state-grid">
-    <div class="state-col mp">
-      <div class="state-header">
-        <div><div class="state-name">MADHYA PRADESH</div><div class="state-full">MP · 7-Day Views</div></div>
-      </div>
-      <div class="state-news-list" id="mp-list"><div style="padding:20px;text-align:center;color:var(--muted);font-size:0.75rem;font-family:monospace">Loading...</div></div>
-    </div>
-    <div class="state-col cg">
-      <div class="state-header">
-        <div><div class="state-name">CHHATTISGARH</div><div class="state-full">CG · 7-Day Views</div></div>
-      </div>
-      <div class="state-news-list" id="cg-list"><div style="padding:20px;text-align:center;color:var(--muted);font-size:0.75rem;font-family:monospace">Loading...</div></div>
-    </div>
-    <div class="state-col rj">
-      <div class="state-header">
-        <div><div class="state-name">RAJASTHAN</div><div class="state-full">RJ · 7-Day Views</div></div>
-      </div>
-      <div class="state-news-list" id="rj-list"><div style="padding:20px;text-align:center;color:var(--muted);font-size:0.75rem;font-family:monospace">Loading...</div></div>
-    </div>
+  <div class="cat-grid" id="cat-grid">
+    <div style="padding:20px;text-align:center;color:var(--muted);font-size:0.75rem;font-family:monospace;grid-column:1/-1">Loading categories...</div>
   </div>
 
   <!-- Top Authors -->
   <div class="sec-hd">
     <h2>Top Writers</h2>
-    <span class="tag tag-yellow">This Month</span>
+    <span class="tag tag-yellow">This Month · GA4 Custom Dim</span>
     <span class="last-updated" id="authors-updated"></span>
   </div>
   <div class="authors-grid" id="authors-grid">
@@ -294,26 +328,91 @@
 <footer>
   <span>© 2026 NewsAnalytics — Powered by Google Analytics 4</span>
   <span>Auto-refresh: <strong style="color:var(--text)">Realtime 15s · Stories 30s · Reports 5min</strong></span>
-  <span>Regions: <strong style="color:var(--text)">MP · CG · RJ</strong></span>
+  <span id="footer-property"></span>
 </footer>
 
 <script>
-// ── Auth Check ──────────────────────────────────────────────────
+// ── Auth Check ───────────────────────────────────────────────
+let currentPropertyId = null;
+
 (async () => {
   const res = await fetch('/auth/me');
   const data = await res.json();
   if (!data.loggedIn) { window.location.href = '/'; return; }
+
+  // Render user info
   const ui = document.getElementById('user-info');
   ui.innerHTML = `
-    ${data.user.picture ? `<img class="user-avatar" src="${data.user.picture}" alt="">` : ''}
-    <span class="user-name">${data.user.name}</span>
+    ${data.photo ? `<img class="user-avatar" src="${data.photo}" alt="">` : ''}
+    <span class="user-name">${data.name}</span>
   `;
+
+  if (data.propertyId) {
+    // Property already selected — boot dashboard
+    currentPropertyId = data.propertyId;
+    document.getElementById('property-name-label').textContent = data.propertyName || data.propertyId;
+    document.getElementById('footer-property').innerHTML = `Property: <strong style="color:var(--text)">${data.propertyName || data.propertyId}</strong>`;
+    document.getElementById('property-modal').classList.add('hidden');
+    startDashboard();
+  } else {
+    // No property selected — show picker
+    openPropertyPicker();
+  }
 })();
 
-// ── Clock ───────────────────────────────────────────────────────
+// ── Property Picker ──────────────────────────────────────────
+async function openPropertyPicker() {
+  document.getElementById('property-modal').classList.remove('hidden');
+  document.getElementById('property-list-wrap').innerHTML = '<div class="modal-loading">⬤ LOADING YOUR PROPERTIES...</div>';
+  try {
+    const res = await fetch('/api/properties');
+    const props = await res.json();
+    if (props.error) throw new Error(props.error);
+    if (!props.length) {
+      document.getElementById('property-list-wrap').innerHTML = '<div class="modal-loading" style="color:var(--accent)">No GA4 properties found for your account.</div>';
+      return;
+    }
+    // Auto-select if only 1 property
+    if (props.length === 1) { await selectProperty(props[0]); return; }
+
+    document.getElementById('property-list-wrap').innerHTML = `
+      <div class="property-list">
+        ${props.map(p => `
+          <div class="property-item" onclick="selectProperty(${JSON.stringify(p).replace(/"/g, '&quot;')})">
+            <div class="property-item-name">${p.displayName}</div>
+            <div class="property-item-meta">${p.account} · ID ${p.propertyId}</div>
+          </div>
+        `).join('')}
+      </div>`;
+  } catch (e) {
+    document.getElementById('property-list-wrap').innerHTML = `<div class="modal-loading" style="color:var(--accent)">Error: ${e.message}</div>`;
+  }
+}
+
+async function selectProperty(prop) {
+  document.getElementById('property-list-wrap').innerHTML = '<div class="modal-loading">⬤ CONNECTING...</div>';
+  try {
+    const res = await fetch('/api/select-property', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ propertyId: prop.propertyId, displayName: prop.displayName })
+    });
+    const data = await res.json();
+    if (!data.ok) throw new Error(data.error);
+
+    currentPropertyId = prop.propertyId;
+    document.getElementById('property-name-label').textContent = prop.displayName;
+    document.getElementById('footer-property').innerHTML = `Property: <strong style="color:var(--text)">${prop.displayName}</strong>`;
+    document.getElementById('property-modal').classList.add('hidden');
+    startDashboard();
+  } catch (e) {
+    document.getElementById('property-list-wrap').innerHTML = `<div class="modal-loading" style="color:var(--accent)">Error: ${e.message}</div>`;
+  }
+}
+
+// ── Clock ────────────────────────────────────────────────────
 function updateClock() { document.getElementById('htime').textContent = new Date().toLocaleTimeString('en-IN'); }
 setInterval(updateClock, 1000); updateClock();
-
 function timeLabel() { return new Date().toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', second: '2-digit' }); }
 
 function showError(msg) {
@@ -323,7 +422,7 @@ function showError(msg) {
   setTimeout(() => { el.style.display = 'none'; }, 6000);
 }
 
-// ── Sparkline ───────────────────────────────────────────────────
+// ── Sparkline ────────────────────────────────────────────────
 let sparkData = Array(30).fill(0);
 function drawSparkline() {
   const canvas = document.getElementById('spark');
@@ -357,99 +456,116 @@ function drawSparkline() {
 }
 window.addEventListener('resize', drawSparkline);
 
-// ── Fetch Realtime Users ─────────────────────────────────────────
+// ── Fetch Realtime ───────────────────────────────────────────
 async function fetchRealtime() {
   try {
-    const [rtRes, ssRes] = await Promise.all([
-      fetch('/api/realtime'),
-      fetch('/api/session-stats')
-    ]);
-    const rt = await rtRes.json();
-    const ss = await ssRes.json();
+    const rt = await fetch('/api/realtime').then(r => r.json());
     if (rt.error) throw new Error(rt.error);
-
-    document.getElementById('rt-num').textContent = (rt.totalUsers || 0).toLocaleString('en-IN');
-    document.getElementById('rt-in').textContent = '+' + (rt.usersPerMin || 0);
-    document.getElementById('rt-page').textContent = (rt.pagesPerMin || 0).toLocaleString();
-    document.getElementById('rt-bounce').textContent = ss.bounceRate || '—';
-    document.getElementById('rt-avg').textContent = ss.avgDuration || '—';
-
-    sparkData.push(rt.totalUsers || 0);
-    sparkData.shift();
+    document.getElementById('rt-num').textContent = (rt.activeUsers || 0).toLocaleString('en-IN');
+    document.getElementById('rt-in').textContent = '+' + (rt.newPerMin || 0);
+    document.getElementById('rt-page').textContent = (rt.pageviewsPerMin || 0);
+    document.getElementById('rt-bounce').textContent = rt.bounceRate || '—';
+    document.getElementById('rt-avg').textContent = rt.avgDuration || '—';
+    sparkData.push(rt.activeUsers || 0); sparkData.shift();
     drawSparkline();
-  } catch (err) {
-    showError(err.message);
-  }
+  } catch (e) { showError(e.message); }
 }
 
-// ── Fetch Top 10 News ────────────────────────────────────────────
+// ── Fetch Top 10 News ────────────────────────────────────────
 async function fetchTopNews() {
   try {
-    const res = await fetch('/api/top-news');
-    const data = await res.json();
+    const data = await fetch('/api/top-news').then(r => r.json());
     if (data.error) throw new Error(data.error);
-
-    const maxV = data.news[0]?.pageViews || 1;
-    const rows = data.news.map((n, i) => {
-      const pct = Math.round(n.pageViews / maxV * 100);
-      const initials = n.title.split(' ').slice(0,2).map(w=>w[0]).join('').toUpperCase();
+    const maxV = data[0]?.pageViews || 1;
+    const rows = data.map((n, i) => {
+      const pct = Math.round((n.pageViews / maxV) * 100);
       return `<tr class="rank-${i+1}">
         <td class="rank-num">${i+1}</td>
         <td>
           <div class="news-title">${n.title}</div>
-          <div class="news-path">${n.path}</div>
           <div class="bar-wrap"><div class="bar-fill" style="width:${pct}%"></div></div>
         </td>
         <td class="views-cell">${(n.activeUsers||0).toLocaleString('en-IN')}<br><span>active</span></td>
         <td class="views-cell">${(n.pageViews||0).toLocaleString('en-IN')}<br><span>views</span></td>
-        <td class="views-cell">${pct}%</td>
       </tr>`;
     }).join('');
-
-    document.getElementById('top10-body').innerHTML = rows || '<tr class="loading-row"><td colspan="5">No data available</td></tr>';
+    document.getElementById('top10-body').innerHTML = rows || '<tr class="loading-row"><td colspan="4">No data available</td></tr>';
     document.getElementById('news-updated').textContent = 'Updated ' + timeLabel();
-  } catch (err) {
-    showError(err.message);
-    document.getElementById('top10-body').innerHTML = `<tr class="loading-row"><td colspan="5">Error: ${err.message}</td></tr>`;
+  } catch (e) {
+    showError(e.message);
+    document.getElementById('top10-body').innerHTML = `<tr class="loading-row"><td colspan="4">Error: ${e.message}</td></tr>`;
   }
 }
 
-// ── Fetch State News ─────────────────────────────────────────────
-async function fetchStateNews() {
-  const states = ['mp', 'cg', 'rj'];
-  await Promise.all(states.map(async (state) => {
-    try {
-      const res = await fetch(`/api/state-news?state=${state}`);
-      const data = await res.json();
-      if (data.error) throw new Error(data.error);
+// ── Fetch Dynamic Categories ─────────────────────────────────
+const catColors = ['#7c9eff','#00d4aa','#ffb800','#ff3b3b','#c084fc','#f97316'];
 
-      const html = (data.news || []).map((n, i) => `
-        <div class="state-news-item">
-          <div class="state-rank">${i+1}</div>
-          <div class="state-news-content">
-            <div class="state-news-title">${n.title}</div>
-            <div class="state-meta">
-              <span class="state-views">👁 ${(n.views||0).toLocaleString('en-IN')}</span>
-              <span>${(n.users||0).toLocaleString()} users</span>
-            </div>
-          </div>
-        </div>`).join('') || '<div style="padding:20px;text-align:center;color:var(--muted);font-size:0.75rem;font-family:monospace">No data for this region</div>';
-
-      document.getElementById(`${state}-list`).innerHTML = html;
-    } catch (err) {
-      document.getElementById(`${state}-list`).innerHTML = `<div style="padding:20px;text-align:center;color:var(--accent);font-size:0.7rem;font-family:monospace">Error: ${err.message}</div>`;
+async function fetchCategories() {
+  try {
+    const cats = await fetch('/api/categories').then(r => r.json());
+    if (cats.error) throw new Error(cats.error);
+    if (!cats.length) {
+      document.getElementById('cat-grid').innerHTML = '<div style="grid-column:1/-1;padding:2rem;text-align:center;color:var(--muted);font-family:monospace;font-size:0.75rem">No category data available</div>';
+      return;
     }
-  }));
-  document.getElementById('state-updated').textContent = 'Updated ' + timeLabel();
+
+    // Dynamically adjust columns based on count
+    const grid = document.getElementById('cat-grid');
+    const cols = Math.min(cats.length, 3);
+    grid.style.gridTemplateColumns = `repeat(${cols}, 1fr)`;
+
+    grid.innerHTML = cats.map((cat, idx) => `
+      <div class="cat-col">
+        <div class="cat-header">
+          <div>
+            <div class="cat-name" style="color:${catColors[idx % catColors.length]}">${cat.displayName}</div>
+            <div class="cat-meta">/${cat.slug}/ · 7-Day Views</div>
+          </div>
+          <div class="cat-views-badge">${(cat.views||0).toLocaleString('en-IN')} views</div>
+        </div>
+        <div class="cat-news-list" id="cat-${cat.slug}-list">
+          <div style="padding:20px;text-align:center;color:var(--muted);font-size:0.75rem;font-family:monospace">Loading...</div>
+        </div>
+      </div>
+    `).join('');
+
+    document.getElementById('cat-updated').textContent = 'Updated ' + timeLabel();
+
+    // Fetch articles for each category in parallel
+    await Promise.all(cats.map(cat => fetchCategoryNews(cat.slug)));
+  } catch (e) {
+    showError(e.message);
+    document.getElementById('cat-grid').innerHTML = `<div style="grid-column:1/-1;padding:2rem;text-align:center;color:var(--accent);font-family:monospace;font-size:0.75rem">Error: ${e.message}</div>`;
+  }
 }
 
-// ── Fetch Authors ─────────────────────────────────────────────────
+async function fetchCategoryNews(slug) {
+  try {
+    const data = await fetch(`/api/category-news/${slug}`).then(r => r.json());
+    const el = document.getElementById(`cat-${slug}-list`);
+    if (!el) return;
+    if (data.error) throw new Error(data.error);
+    el.innerHTML = (data || []).map((n, i) => `
+      <div class="cat-news-item">
+        <div class="cat-rank">${i+1}</div>
+        <div class="cat-news-content">
+          <div class="cat-news-title">${n.title}</div>
+          <div class="cat-news-meta">
+            <span class="cat-news-views">👁 ${(n.views||0).toLocaleString('en-IN')}</span>
+          </div>
+        </div>
+      </div>`).join('') || '<div style="padding:20px;text-align:center;color:var(--muted);font-size:0.75rem;font-family:monospace">No articles</div>';
+  } catch (e) {
+    const el = document.getElementById(`cat-${slug}-list`);
+    if (el) el.innerHTML = `<div style="padding:20px;text-align:center;color:var(--accent);font-size:0.7rem;font-family:monospace">Error</div>`;
+  }
+}
+
+// ── Fetch Authors ─────────────────────────────────────────────
 async function fetchAuthors() {
   try {
-    const res = await fetch('/api/top-authors');
-    const authors = await res.json();
+    const authors = await fetch('/api/top-authors').then(r => r.json());
     if (authors.error) throw new Error(authors.error);
-
     const maxViews = authors[0]?.views || 1;
     const html = (authors || []).map((a, i) => {
       const initials = a.name.split(' ').map(w=>w[0]).join('').substring(0,2).toUpperCase();
@@ -463,36 +579,48 @@ async function fetchAuthors() {
           <div class="author-stats">
             <div>
               <div class="a-stat-val">${(a.views||0).toLocaleString('en-IN')}</div>
-              <div class="a-stat-lbl">Views</div>
+              <div class="a-stat-lbl">Events</div>
             </div>
             <div>
               <div class="a-stat-val">${(a.articles||0).toLocaleString()}</div>
-              <div class="a-stat-lbl">Events</div>
+              <div class="a-stat-lbl">Views</div>
             </div>
           </div>
           <div class="author-bar"><div class="author-bar-fill" style="width:${pct}%"></div></div>
         </div>
       </div>`;
     }).join('');
-
-    document.getElementById('authors-grid').innerHTML = html || '<div style="color:var(--muted);font-family:monospace;font-size:0.75rem;padding:1rem">No author data. Make sure you have a custom dimension "author" set up in GA4.</div>';
+    document.getElementById('authors-grid').innerHTML = html || '<div style="color:var(--muted);font-family:monospace;font-size:0.75rem;padding:1rem">No author data — configure <code>author</code> as a custom dimension in GA4.</div>';
     document.getElementById('authors-updated').textContent = 'Updated ' + timeLabel();
-  } catch (err) {
-    showError(err.message);
-    document.getElementById('authors-grid').innerHTML = `<div style="color:var(--accent);font-family:monospace;font-size:0.75rem;padding:1rem">Error: ${err.message}</div>`;
+  } catch (e) {
+    showError(e.message);
+    document.getElementById('authors-grid').innerHTML = `<div style="color:var(--accent);font-family:monospace;font-size:0.75rem;padding:1rem">Error: ${e.message}</div>`;
   }
 }
 
-// ── Init & Polling ───────────────────────────────────────────────
-fetchRealtime();
-fetchTopNews();
-fetchStateNews();
-fetchAuthors();
+// ── Dashboard Polling ────────────────────────────────────────
+let pollIntervals = [];
 
-setInterval(fetchRealtime, 5000);         // every 5s
-setInterval(fetchTopNews, 5000);          // every 5s
-setInterval(fetchStateNews, 5 * 60000);  // every 5 min
-setInterval(fetchAuthors, 5 * 60000);    // every 5 min
+function startDashboard() {
+  // Clear any existing intervals (e.g. after property switch)
+  pollIntervals.forEach(clearInterval);
+  pollIntervals = [];
+
+  // Reset sparkline for new property
+  sparkData = Array(30).fill(0);
+
+  // Initial load
+  fetchRealtime();
+  fetchTopNews();
+  fetchCategories();
+  fetchAuthors();
+
+  // Polling
+  pollIntervals.push(setInterval(fetchRealtime, 15000));       // every 15s
+  pollIntervals.push(setInterval(fetchTopNews, 30000));        // every 30s
+  pollIntervals.push(setInterval(fetchCategories, 5 * 60000)); // every 5 min
+  pollIntervals.push(setInterval(fetchAuthors, 5 * 60000));    // every 5 min
+}
 </script>
 </body>
 </html>
