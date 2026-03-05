@@ -130,8 +130,14 @@
   canvas#spark { width: 100%; height: 60px; }
 
   /* Section headers */
-  .sec-hd { display: flex; align-items: baseline; gap: 1rem; margin-bottom: 1.5rem; }
+  .sec-hd { display: flex; align-items: center; gap: 1rem; margin-bottom: 1.5rem; }
   .sec-hd h2 { font-family: 'Bebas Neue', sans-serif; font-size: 1.8rem; letter-spacing: 2px; }
+
+  /* Range pills */
+  .range-pills { display: flex; gap: 0.35rem; flex-wrap: wrap; }
+  .range-pill { background: var(--surface); border: 1px solid var(--border); color: var(--muted); font-family: 'IBM Plex Mono', monospace; font-size: 0.65rem; letter-spacing: 1px; padding: 4px 10px; border-radius: 100px; cursor: pointer; transition: all 0.15s; text-transform: uppercase; }
+  .range-pill:hover { border-color: var(--accent); color: var(--text); }
+  .range-pill.active { background: var(--accent); border-color: var(--accent); color: #fff; }
   .tag { font-family: 'IBM Plex Mono', monospace; font-size: 0.65rem; letter-spacing: 2px; padding: 3px 10px; border-radius: 100px; text-transform: uppercase; }
   .tag-red { background: rgba(255,59,59,0.15); color: var(--accent); border: 1px solid rgba(255,59,59,0.3); }
   .tag-teal { background: rgba(0,212,170,0.12); color: var(--accent3); border: 1px solid rgba(0,212,170,0.25); }
@@ -283,9 +289,22 @@
   </div>
 
   <!-- Top 10 News -->
-  <div class="sec-hd">
+  <div class="sec-hd" style="flex-wrap:wrap;gap:0.75rem">
     <h2>Top 10 Stories</h2>
-    <span class="tag tag-red">Last 30 Min · Live</span>
+    <div class="range-pills" id="news-range-pills">
+      <button class="range-pill active" data-range="realtime" onclick="setTopRange('realtime')">⚡ 30 Min</button>
+      <button class="range-pill" data-range="today"   onclick="setTopRange('today')">Today</button>
+      <button class="range-pill" data-range="7days"   onclick="setTopRange('7days')">7 Days</button>
+      <button class="range-pill" data-range="30days"  onclick="setTopRange('30days')">30 Days</button>
+      <button class="range-pill" data-range="month"   onclick="setTopRange('month')">This Month</button>
+      <button class="range-pill" data-range="custom"  onclick="setTopRange('custom')">Custom ▾</button>
+    </div>
+    <div id="custom-range-wrap" style="display:none;align-items:center;gap:0.5rem;font-family:monospace;font-size:0.72rem">
+      <input type="date" id="range-start" style="background:var(--surface);border:1px solid var(--border);color:var(--text);padding:3px 6px;border-radius:6px;font-size:0.72rem">
+      <span style="color:var(--muted)">→</span>
+      <input type="date" id="range-end" style="background:var(--surface);border:1px solid var(--border);color:var(--text);padding:3px 6px;border-radius:6px;font-size:0.72rem">
+      <button onclick="applyCustomRange()" style="background:var(--accent);color:#fff;border:none;padding:3px 10px;border-radius:6px;cursor:pointer;font-size:0.72rem;font-family:monospace">Go</button>
+    </div>
     <span class="last-updated" id="news-updated"></span>
   </div>
   <div class="news-table">
@@ -294,8 +313,8 @@
         <tr>
           <th>#</th>
           <th>Headline</th>
-          <th>Active Users</th>
-          <th>Views (30 min)</th>
+          <th id="col-active" style="">Active Users</th>
+          <th id="col-views">Views</th>
         </tr>
       </thead>
       <tbody id="top10-body">
@@ -471,12 +490,46 @@ async function fetchRealtime() {
   } catch (e) { showError(e.message); }
 }
 
+// ── Top Stories Range Selector ───────────────────────────────
+let currentTopRange = 'realtime';
+let topNewsInterval = null;
+
+function setTopRange(range) {
+  currentTopRange = range;
+  document.querySelectorAll('.range-pill').forEach(p => p.classList.toggle('active', p.dataset.range === range));
+  const isRealtime = range === 'realtime';
+  document.getElementById('col-active').style.display = isRealtime ? '' : 'none';
+  document.getElementById('col-views').textContent = isRealtime ? 'Views (30 min)' : 'Page Views';
+  document.getElementById('custom-range-wrap').style.display = range === 'custom' ? 'flex' : 'none';
+  if (range !== 'custom') fetchTopNews();
+  // Adjust polling: realtime = 30s, others = 5min
+  if (topNewsInterval) clearInterval(topNewsInterval);
+  topNewsInterval = setInterval(fetchTopNews, isRealtime ? 30000 : 5 * 60000);
+  pollIntervals.push(topNewsInterval);
+}
+
+function applyCustomRange() {
+  const s = document.getElementById('range-start').value;
+  const e = document.getElementById('range-end').value;
+  if (!s) return;
+  fetchTopNews(s, e || undefined);
+}
+
 // ── Fetch Top 10 News ────────────────────────────────────────
-async function fetchTopNews() {
+async function fetchTopNews(customStart, customEnd) {
   try {
-    const data = await fetch('/api/top-news').then(r => r.json());
+    let url = `/api/top-news?range=${currentTopRange}`;
+    if (currentTopRange === 'custom') {
+      const s = customStart || document.getElementById('range-start').value;
+      const e = customEnd || document.getElementById('range-end').value;
+      if (!s) return;
+      url += `&start=${s}${e ? '&end=' + e : ''}`;
+    }
+    const data = await fetch(url).then(r => r.json());
     if (data.error) throw new Error(data.error);
+    const isRealtime = currentTopRange === 'realtime';
     const maxV = data[0]?.pageViews || 1;
+    const cols = isRealtime ? 4 : 3;
     const rows = data.map((n, i) => {
       const pct = Math.round((n.pageViews / maxV) * 100);
       return `<tr class="rank-${i+1}">
@@ -485,11 +538,11 @@ async function fetchTopNews() {
           <div class="news-title">${n.title}</div>
           <div class="bar-wrap"><div class="bar-fill" style="width:${pct}%"></div></div>
         </td>
-        <td class="views-cell">${(n.activeUsers||0).toLocaleString('en-IN')}<br><span>active</span></td>
+        ${isRealtime ? `<td class="views-cell">${(n.activeUsers||0).toLocaleString('en-IN')}<br><span>active</span></td>` : ''}
         <td class="views-cell">${(n.pageViews||0).toLocaleString('en-IN')}<br><span>views</span></td>
       </tr>`;
     }).join('');
-    document.getElementById('top10-body').innerHTML = rows || '<tr class="loading-row"><td colspan="4">No data available</td></tr>';
+    document.getElementById('top10-body').innerHTML = rows || `<tr class="loading-row"><td colspan="${cols}">No data available</td></tr>`;
     document.getElementById('news-updated').textContent = 'Updated ' + timeLabel();
   } catch (e) {
     showError(e.message);
@@ -605,9 +658,15 @@ function startDashboard() {
   // Clear any existing intervals (e.g. after property switch)
   pollIntervals.forEach(clearInterval);
   pollIntervals = [];
+  topNewsInterval = null;
 
-  // Reset sparkline for new property
+  // Reset sparkline and range for new property
   sparkData = Array(30).fill(0);
+  currentTopRange = 'realtime';
+  document.querySelectorAll('.range-pill').forEach(p => p.classList.toggle('active', p.dataset.range === 'realtime'));
+  document.getElementById('col-active').style.display = '';
+  document.getElementById('col-views').textContent = 'Views (30 min)';
+  document.getElementById('custom-range-wrap').style.display = 'none';
 
   // Initial load
   fetchRealtime();
@@ -616,10 +675,11 @@ function startDashboard() {
   fetchAuthors();
 
   // Polling
-  pollIntervals.push(setInterval(fetchRealtime, 15000));       // every 15s
-  pollIntervals.push(setInterval(fetchTopNews, 30000));        // every 30s
-  pollIntervals.push(setInterval(fetchCategories, 5 * 60000)); // every 5 min
-  pollIntervals.push(setInterval(fetchAuthors, 5 * 60000));    // every 5 min
+  pollIntervals.push(setInterval(fetchRealtime, 15000));
+  topNewsInterval = setInterval(fetchTopNews, 30000);
+  pollIntervals.push(topNewsInterval);
+  pollIntervals.push(setInterval(fetchCategories, 5 * 60000));
+  pollIntervals.push(setInterval(fetchAuthors, 5 * 60000));
 }
 </script>
 </body>

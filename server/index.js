@@ -193,33 +193,74 @@ app.get('/api/realtime', requireProperty, async (req, res) => {
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
-// ── API: Top 10 News (Realtime — last 30 min pageviews) ───
+// ── API: Top 10 News (multi-range) ────────────────────────
 app.get('/api/top-news', requireProperty, async (req, res) => {
   try {
-    const k = CK(req, 'top10');
-    if (cache.has(k)) return res.json(cache.get(k));
-    const r = await ga(req.user).properties.runRealtimeReport({
-      property: PROP(req),
-      requestBody: {
-        metrics: [{ name: 'screenPageViews' }, { name: 'activeUsers' }],
-        dimensions: [{ name: 'unifiedScreenName' }],
-        orderBys: [{ metric: { metricName: 'screenPageViews' }, desc: true }],
-        limit: 50
+    const range = req.query.range || 'realtime';
+    const cacheKey = range === 'custom'
+      ? CK(req, `top10_custom_${req.query.start}_${req.query.end}`)
+      : CK(req, `top10_${range}`);
+    if (cache.has(cacheKey)) return res.json(cache.get(cacheKey));
+
+    let rows = [];
+
+    if (range === 'realtime') {
+      const r = await ga(req.user).properties.runRealtimeReport({
+        property: PROP(req),
+        requestBody: {
+          metrics: [{ name: 'screenPageViews' }, { name: 'activeUsers' }],
+          dimensions: [{ name: 'unifiedScreenName' }],
+          orderBys: [{ metric: { metricName: 'screenPageViews' }, desc: true }],
+          limit: 50
+        }
+      });
+      rows = (r.data.rows || [])
+        .filter(row => {
+          const t = row.dimensionValues[0].value;
+          return t && t !== '(other)' && t !== '(not set)' && t.trim() !== '';
+        })
+        .slice(0, 10)
+        .map((row, i) => ({
+          rank: i + 1, title: row.dimensionValues[0].value,
+          pageViews: parseInt(row.metricValues[0].value),
+          activeUsers: parseInt(row.metricValues[1].value)
+        }));
+      cache.set(cacheKey, rows, 30);
+    } else {
+      const now = new Date();
+      let startDate, endDate = 'today';
+      if (range === 'today')       startDate = 'today';
+      else if (range === '7days')  startDate = '7daysAgo';
+      else if (range === '30days') startDate = '30daysAgo';
+      else if (range === 'month')  startDate = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}-01`;
+      else if (range === 'custom') {
+        startDate = req.query.start; endDate = req.query.end || 'today';
+        if (!startDate) return res.status(400).json({ error: 'start required' });
       }
-    });
-    const rows = (r.data.rows || [])
-      .filter(row => {
-        const t = row.dimensionValues[0].value;
-        return t && t !== '(other)' && t !== '(not set)' && t.trim() !== '';
-      })
-      .slice(0, 10)
-      .map((row, i) => ({
-        rank: i + 1,
-        title: row.dimensionValues[0].value,
-        pageViews: parseInt(row.metricValues[0].value),
-        activeUsers: parseInt(row.metricValues[1].value)
-      }));
-    cache.set(k, rows, 30);
+      const r = await ga(req.user).properties.runReport({
+        property: PROP(req),
+        requestBody: {
+          dateRanges: [{ startDate, endDate }],
+          metrics: [{ name: 'screenPageViews' }],
+          dimensions: [{ name: 'pageTitle' }, { name: 'pagePath' }],
+          orderBys: [{ metric: { metricName: 'screenPageViews' }, desc: true }],
+          limit: 15
+        }
+      });
+      rows = (r.data.rows || [])
+        .filter(row => {
+          const t = row.dimensionValues[0].value;
+          return t && t !== '(not set)' && t.trim() !== '';
+        })
+        .slice(0, 10)
+        .map((row, i) => ({
+          rank: i + 1, title: row.dimensionValues[0].value,
+          path: row.dimensionValues[1].value,
+          pageViews: parseInt(row.metricValues[0].value),
+          activeUsers: null
+        }));
+      cache.set(cacheKey, rows, 300);
+    }
     res.json(rows);
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
