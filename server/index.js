@@ -265,15 +265,28 @@ app.get('/api/top-news', requireProperty, async (req, res) => {
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
-// ── API: Top Categories (7-day pageviews, dynamic) ────────
+// ── API: Top Categories (dynamic range) ───────────────────
 app.get('/api/categories', requireProperty, async (req, res) => {
   try {
-    const k = CK(req, 'categories');
-    if (cache.has(k)) return res.json(cache.get(k));
+    const range = req.query.range || '7days';
+    const cacheKey = range === 'custom'
+      ? CK(req, `categories_custom_${req.query.start}_${req.query.end}`)
+      : CK(req, `categories_${range}`);
+    if (cache.has(cacheKey)) return res.json(cache.get(cacheKey));
+    const now = new Date();
+    let startDate = '7daysAgo', endDate = 'today';
+    if (range === 'today')       startDate = 'today';
+    else if (range === '7days')  startDate = '7daysAgo';
+    else if (range === '30days') startDate = '30daysAgo';
+    else if (range === 'month')  startDate = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}-01`;
+    else if (range === 'custom') {
+      startDate = req.query.start; endDate = req.query.end || 'today';
+      if (!startDate) return res.status(400).json({ error: 'start required' });
+    }
     const r = await ga(req.user).properties.runReport({
       property: PROP(req),
       requestBody: {
-        dateRanges: [{ startDate: '7daysAgo', endDate: 'today' }],
+        dateRanges: [{ startDate, endDate }],
         metrics: [{ name: 'screenPageViews' }],
         dimensions: [{ name: 'pagePath' }],
         orderBys: [{ metric: { metricName: 'screenPageViews' }, desc: true }],
@@ -301,21 +314,34 @@ app.get('/api/categories', requireProperty, async (req, res) => {
         views
       }));
 
-    cache.set(k, categories, 300);
+    cache.set(cacheKey, categories, 300);
     res.json(categories);
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
-// ── API: Category News (Last 7 days) ──────────────────────
+// ── API: Category News (dynamic range) ────────────────────
 app.get('/api/category-news/:slug', requireProperty, async (req, res) => {
   try {
     const slug = req.params.slug.toLowerCase();
-    const k = CK(req, `cat_${slug}`);
-    if (cache.has(k)) return res.json(cache.get(k));
+    const range = req.query.range || '7days';
+    const cacheKey = range === 'custom'
+      ? CK(req, `cat_${slug}_custom_${req.query.start}_${req.query.end}`)
+      : CK(req, `cat_${slug}_${range}`);
+    if (cache.has(cacheKey)) return res.json(cache.get(cacheKey));
+    const now = new Date();
+    let startDate = '7daysAgo', endDate = 'today';
+    if (range === 'today')       startDate = 'today';
+    else if (range === '7days')  startDate = '7daysAgo';
+    else if (range === '30days') startDate = '30daysAgo';
+    else if (range === 'month')  startDate = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}-01`;
+    else if (range === 'custom') {
+      startDate = req.query.start; endDate = req.query.end || 'today';
+      if (!startDate) return res.status(400).json({ error: 'start required' });
+    }
     const r = await ga(req.user).properties.runReport({
       property: PROP(req),
       requestBody: {
-        dateRanges: [{ startDate: '7daysAgo', endDate: 'today' }],
+        dateRanges: [{ startDate, endDate }],
         metrics: [{ name: 'screenPageViews' }],
         dimensions: [{ name: 'pageTitle' }, { name: 'pagePath' }],
         dimensionFilter: {
@@ -336,7 +362,7 @@ app.get('/api/category-news/:slug', requireProperty, async (req, res) => {
         path: row.dimensionValues[1].value,
         views: parseInt(row.metricValues[0].value)
       }));
-    cache.set(k, rows, 300);
+    cache.set(cacheKey, rows, 300);
     res.json(rows);
   } catch (e) { res.status(500).json({ error: e.message }); }
 });

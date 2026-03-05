@@ -133,11 +133,12 @@
   .sec-hd { display: flex; align-items: center; gap: 1rem; margin-bottom: 1.5rem; }
   .sec-hd h2 { font-family: 'Bebas Neue', sans-serif; font-size: 1.8rem; letter-spacing: 2px; }
 
-  /* Range pills */
-  .range-pills { display: flex; gap: 0.35rem; flex-wrap: wrap; }
-  .range-pill { background: var(--surface); border: 1px solid var(--border); color: var(--muted); font-family: 'IBM Plex Mono', monospace; font-size: 0.65rem; letter-spacing: 1px; padding: 4px 10px; border-radius: 100px; cursor: pointer; transition: all 0.15s; text-transform: uppercase; }
-  .range-pill:hover { border-color: var(--accent); color: var(--text); }
-  .range-pill.active { background: var(--accent); border-color: var(--accent); color: #fff; }
+  /* Range dropdown */
+  .range-select { background: var(--surface); border: 1px solid var(--border); color: var(--text); font-family: 'IBM Plex Mono', monospace; font-size: 0.68rem; letter-spacing: 0.5px; padding: 5px 10px; border-radius: 8px; cursor: pointer; outline: none; }
+  .range-select:focus { border-color: var(--accent); }
+  .custom-date-wrap { display: none; align-items: center; gap: 0.5rem; font-family: monospace; font-size: 0.72rem; }
+  .custom-date-wrap input[type=date] { background: var(--surface); border: 1px solid var(--border); color: var(--text); padding: 3px 6px; border-radius: 6px; font-size: 0.72rem; }
+  .custom-date-wrap button { background: var(--accent); color: #fff; border: none; padding: 3px 10px; border-radius: 6px; cursor: pointer; font-size: 0.72rem; font-family: monospace; }
   .tag { font-family: 'IBM Plex Mono', monospace; font-size: 0.65rem; letter-spacing: 2px; padding: 3px 10px; border-radius: 100px; text-transform: uppercase; }
   .tag-red { background: rgba(255,59,59,0.15); color: var(--accent); border: 1px solid rgba(255,59,59,0.3); }
   .tag-teal { background: rgba(0,212,170,0.12); color: var(--accent3); border: 1px solid rgba(0,212,170,0.25); }
@@ -291,19 +292,19 @@
   <!-- Top 10 News -->
   <div class="sec-hd" style="flex-wrap:wrap;gap:0.75rem">
     <h2>Top 10 Stories</h2>
-    <div class="range-pills" id="news-range-pills">
-      <button class="range-pill active" data-range="realtime" onclick="setTopRange('realtime')">⚡ 30 Min</button>
-      <button class="range-pill" data-range="today"   onclick="setTopRange('today')">Today</button>
-      <button class="range-pill" data-range="7days"   onclick="setTopRange('7days')">7 Days</button>
-      <button class="range-pill" data-range="30days"  onclick="setTopRange('30days')">30 Days</button>
-      <button class="range-pill" data-range="month"   onclick="setTopRange('month')">This Month</button>
-      <button class="range-pill" data-range="custom"  onclick="setTopRange('custom')">Custom ▾</button>
-    </div>
-    <div id="custom-range-wrap" style="display:none;align-items:center;gap:0.5rem;font-family:monospace;font-size:0.72rem">
-      <input type="date" id="range-start" style="background:var(--surface);border:1px solid var(--border);color:var(--text);padding:3px 6px;border-radius:6px;font-size:0.72rem">
+    <select id="news-range-select" class="range-select" onchange="setTopRange(this.value)">
+      <option value="realtime" selected>⚡ Last 30 Min</option>
+      <option value="today">Today</option>
+      <option value="7days">Last 7 Days</option>
+      <option value="30days">Last 30 Days</option>
+      <option value="month">This Month</option>
+      <option value="custom">Custom Range</option>
+    </select>
+    <div id="custom-range-wrap" class="custom-date-wrap">
+      <input type="date" id="range-start">
       <span style="color:var(--muted)">→</span>
-      <input type="date" id="range-end" style="background:var(--surface);border:1px solid var(--border);color:var(--text);padding:3px 6px;border-radius:6px;font-size:0.72rem">
-      <button onclick="applyCustomRange()" style="background:var(--accent);color:#fff;border:none;padding:3px 10px;border-radius:6px;cursor:pointer;font-size:0.72rem;font-family:monospace">Go</button>
+      <input type="date" id="range-end">
+      <button onclick="applyCustomRange()">Go</button>
     </div>
     <span class="last-updated" id="news-updated"></span>
   </div>
@@ -324,9 +325,21 @@
   </div>
 
   <!-- Dynamic Category Columns -->
-  <div class="sec-hd">
+  <div class="sec-hd" style="flex-wrap:wrap;gap:0.75rem">
     <h2>Top Categories</h2>
-    <span class="tag tag-teal">Last 7 Days</span>
+    <select id="cat-range-select" class="range-select" onchange="setCatRange(this.value)">
+      <option value="7days" selected>Last 7 Days</option>
+      <option value="today">Today</option>
+      <option value="30days">Last 30 Days</option>
+      <option value="month">This Month</option>
+      <option value="custom">Custom Range</option>
+    </select>
+    <div id="cat-custom-wrap" class="custom-date-wrap">
+      <input type="date" id="cat-range-start">
+      <span style="color:var(--muted)">→</span>
+      <input type="date" id="cat-range-end">
+      <button onclick="applyCatCustomRange()">Go</button>
+    </div>
     <span class="last-updated" id="cat-updated"></span>
   </div>
   <div class="cat-grid" id="cat-grid">
@@ -496,13 +509,11 @@ let topNewsInterval = null;
 
 function setTopRange(range) {
   currentTopRange = range;
-  document.querySelectorAll('.range-pill').forEach(p => p.classList.toggle('active', p.dataset.range === range));
   const isRealtime = range === 'realtime';
   document.getElementById('col-active').style.display = isRealtime ? '' : 'none';
   document.getElementById('col-views').textContent = isRealtime ? 'Views (30 min)' : 'Page Views';
   document.getElementById('custom-range-wrap').style.display = range === 'custom' ? 'flex' : 'none';
   if (range !== 'custom') fetchTopNews();
-  // Adjust polling: realtime = 30s, others = 5min
   if (topNewsInterval) clearInterval(topNewsInterval);
   topNewsInterval = setInterval(fetchTopNews, isRealtime ? 30000 : 5 * 60000);
   pollIntervals.push(topNewsInterval);
@@ -510,18 +521,32 @@ function setTopRange(range) {
 
 function applyCustomRange() {
   const s = document.getElementById('range-start').value;
-  const e = document.getElementById('range-end').value;
   if (!s) return;
-  fetchTopNews(s, e || undefined);
+  fetchTopNews();
+}
+
+// ── Category Range Selector ───────────────────────────────────
+let currentCatRange = '7days';
+
+function setCatRange(range) {
+  currentCatRange = range;
+  document.getElementById('cat-custom-wrap').style.display = range === 'custom' ? 'flex' : 'none';
+  if (range !== 'custom') fetchCategories();
+}
+
+function applyCatCustomRange() {
+  const s = document.getElementById('cat-range-start').value;
+  if (!s) return;
+  fetchCategories();
 }
 
 // ── Fetch Top 10 News ────────────────────────────────────────
-async function fetchTopNews(customStart, customEnd) {
+async function fetchTopNews() {
   try {
     let url = `/api/top-news?range=${currentTopRange}`;
     if (currentTopRange === 'custom') {
-      const s = customStart || document.getElementById('range-start').value;
-      const e = customEnd || document.getElementById('range-end').value;
+      const s = document.getElementById('range-start').value;
+      const e = document.getElementById('range-end').value;
       if (!s) return;
       url += `&start=${s}${e ? '&end=' + e : ''}`;
     }
@@ -555,7 +580,14 @@ const catColors = ['#7c9eff','#00d4aa','#ffb800','#ff3b3b','#c084fc','#f97316'];
 
 async function fetchCategories() {
   try {
-    const cats = await fetch('/api/categories').then(r => r.json());
+    let url = `/api/categories?range=${currentCatRange}`;
+    if (currentCatRange === 'custom') {
+      const s = document.getElementById('cat-range-start').value;
+      const e = document.getElementById('cat-range-end').value;
+      if (!s) return;
+      url += `&start=${s}${e ? '&end=' + e : ''}`;
+    }
+    const cats = await fetch(url).then(r => r.json());
     if (cats.error) throw new Error(cats.error);
     if (!cats.length) {
       document.getElementById('cat-grid').innerHTML = '<div style="grid-column:1/-1;padding:2rem;text-align:center;color:var(--muted);font-family:monospace;font-size:0.75rem">No category data available</div>';
@@ -572,7 +604,7 @@ async function fetchCategories() {
         <div class="cat-header">
           <div>
             <div class="cat-name" style="color:${catColors[idx % catColors.length]}">${cat.displayName}</div>
-            <div class="cat-meta">/${cat.slug}/ · 7-Day Views</div>
+            <div class="cat-meta">/${cat.slug}/ · ${{ 'today': 'Today', '7days': '7-Day', '30days': '30-Day', 'month': 'Monthly', 'custom': 'Custom' }[currentCatRange] || '7-Day'} Views</div>
           </div>
           <div class="cat-views-badge">${(cat.views||0).toLocaleString('en-IN')} views</div>
         </div>
@@ -594,7 +626,13 @@ async function fetchCategories() {
 
 async function fetchCategoryNews(slug) {
   try {
-    const data = await fetch(`/api/category-news/${slug}`).then(r => r.json());
+    let url = `/api/category-news/${slug}?range=${currentCatRange}`;
+    if (currentCatRange === 'custom') {
+      const s = document.getElementById('cat-range-start').value;
+      const e = document.getElementById('cat-range-end').value;
+      url += `&start=${s}${e ? '&end=' + e : ''}`;
+    }
+    const data = await fetch(url).then(r => r.json());
     const el = document.getElementById(`cat-${slug}-list`);
     if (!el) return;
     if (data.error) throw new Error(data.error);
@@ -660,13 +698,16 @@ function startDashboard() {
   pollIntervals = [];
   topNewsInterval = null;
 
-  // Reset sparkline and range for new property
+  // Reset sparkline and ranges for new property
   sparkData = Array(30).fill(0);
   currentTopRange = 'realtime';
-  document.querySelectorAll('.range-pill').forEach(p => p.classList.toggle('active', p.dataset.range === 'realtime'));
+  currentCatRange = '7days';
+  document.getElementById('news-range-select').value = 'realtime';
+  document.getElementById('cat-range-select').value = '7days';
   document.getElementById('col-active').style.display = '';
   document.getElementById('col-views').textContent = 'Views (30 min)';
   document.getElementById('custom-range-wrap').style.display = 'none';
+  document.getElementById('cat-custom-wrap').style.display = 'none';
 
   // Initial load
   fetchRealtime();
