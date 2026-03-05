@@ -426,6 +426,40 @@ app.get('/api/ga4-dims', requireProperty, async (req, res) => {
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
+// ── API: Geo Traffic (city + country breakdown) ────────────
+app.get('/api/geo-traffic', requireProperty, async (req, res) => {
+  try {
+    const range = req.query.range || '7days';
+    const k = CK(req, `geo_${range}`);
+    if (cache.has(k)) return res.json(cache.get(k));
+    const now = new Date();
+    let startDate = '7daysAgo', endDate = 'today';
+    if (range === 'today')       startDate = 'today';
+    else if (range === '7days')  startDate = '7daysAgo';
+    else if (range === '30days') startDate = '30daysAgo';
+    else if (range === 'month')  startDate = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}-01`;
+    const r = await ga(req.user).properties.runReport({
+      property: PROP(req),
+      requestBody: {
+        dateRanges: [{ startDate, endDate }],
+        metrics: [{ name: 'screenPageViews' }],
+        dimensions: [{ name: 'city' }, { name: 'country' }],
+        orderBys: [{ metric: { metricName: 'screenPageViews' }, desc: true }],
+        limit: 250
+      }
+    });
+    const rows = (r.data.rows || [])
+      .filter(row => { const c = row.dimensionValues[0].value; return c && c !== '(not set)'; })
+      .map(row => ({
+        city: row.dimensionValues[0].value,
+        country: row.dimensionValues[1].value,
+        views: parseInt(row.metricValues[0].value)
+      }));
+    cache.set(k, rows, 300);
+    res.json(rows);
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
 // Local dev: start the server directly
 // Netlify Functions: import this module, listen() is skipped
 if (require.main === module) {

@@ -5,6 +5,8 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>NewsAnalytics — Live Dashboard</title>
 <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=IBM+Plex+Mono:wght@400;600&family=IBM+Plex+Sans:wght@300;400;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <style>
   :root {
     --bg: #0a0a0b; --surface: #111114; --surface2: #1a1a1f; --border: #2a2a32;
@@ -190,6 +192,27 @@
 
   @media (max-width: 900px) { .cat-grid { grid-template-columns: 1fr; } .rt-count { font-size: 3.5rem; } }
   @media (max-width: 600px) { main { padding: 1rem; } }
+
+  /* Geo Map */
+  .leaflet-container { background: #0d0d10 !important; font-family: 'IBM Plex Mono', monospace; }
+  .leaflet-control-zoom a { background: var(--surface2) !important; color: var(--text) !important; border-color: var(--border) !important; }
+  .leaflet-control-zoom a:hover { background: var(--border) !important; }
+  .leaflet-control-attribution { background: rgba(10,10,11,0.7) !important; color: var(--muted) !important; font-size: 0.55rem !important; }
+  .leaflet-control-attribution a { color: var(--muted) !important; }
+  .geo-tip.leaflet-tooltip {
+    background: rgba(10,10,11,0.93) !important; border: 1px solid var(--border) !important;
+    color: var(--text) !important; border-radius: 8px !important;
+    font-family: 'IBM Plex Mono', monospace; font-size: 0.7rem; line-height: 1.6;
+    padding: 8px 12px; box-shadow: 0 4px 20px rgba(0,0,0,0.6) !important;
+  }
+  .geo-tip.leaflet-tooltip::before { border-top-color: var(--border) !important; }
+  .geo-legend {
+    position: absolute; bottom: 1.5rem; left: 1.5rem; z-index: 1000;
+    background: rgba(10,10,11,0.88); backdrop-filter: blur(8px);
+    border: 1px solid var(--border); border-radius: 10px;
+    padding: 0.75rem 1rem; font-family: 'IBM Plex Mono', monospace; font-size: 0.65rem;
+    color: var(--muted); min-width: 140px;
+  }
 </style>
 </head>
 <body>
@@ -308,6 +331,24 @@
   </div>
   <div class="cat-grid" id="cat-grid">
     <div style="padding:20px;text-align:center;color:var(--muted);font-size:0.75rem;font-family:monospace;grid-column:1/-1">Loading categories...</div>
+  </div>
+
+  <!-- Visitor Geography Map -->
+  <div class="sec-hd" style="flex-wrap:wrap;gap:0.75rem">
+    <h2>Visitor Geography</h2>
+    <select id="geo-range-select" class="range-select" onchange="setGeoRange(this.value)">
+      <option value="7days" selected>Last 7 Days</option>
+      <option value="today">Today</option>
+      <option value="30days">Last 30 Days</option>
+      <option value="month">This Month</option>
+    </select>
+    <span class="last-updated" id="geo-updated"></span>
+  </div>
+  <div style="background:var(--surface);border:1px solid var(--border);border-radius:16px;overflow:hidden;margin-bottom:2.5rem;position:relative">
+    <div id="geo-map" style="height:440px;width:100%"></div>
+    <div class="geo-legend" id="geo-legend">
+      <div style="color:var(--muted);letter-spacing:1px">LOADING MAP...</div>
+    </div>
   </div>
 
 </main>
@@ -608,6 +649,189 @@ async function fetchCategoryNews(slug) {
 }
 
 
+// ── Geo Traffic Map ──────────────────────────────────────────
+let geoMap = null, geoMarkers = null, currentGeoRange = '7days';
+
+// City -> [lat, lng] lookup table (lowercase keys)
+const CITY_LL = {
+  // India — major cities
+  'new delhi':[28.6139,77.2090],'delhi':[28.6139,77.2090],'mumbai':[19.0760,72.8777],'bombay':[19.0760,72.8777],
+  'bangalore':[12.9716,77.5946],'bengaluru':[12.9716,77.5946],'hyderabad':[17.3850,78.4867],
+  'chennai':[13.0827,80.2707],'madras':[13.0827,80.2707],'kolkata':[22.5726,88.3639],'calcutta':[22.5726,88.3639],
+  'ahmedabad':[23.0225,72.5714],'pune':[18.5204,73.8567],'surat':[21.1702,72.8311],
+  'jaipur':[26.9124,75.7873],'lucknow':[26.8467,80.9462],'kanpur':[26.4499,80.3319],
+  'nagpur':[21.1458,79.0882],'indore':[22.7196,75.8577],'bhopal':[23.2599,77.4126],
+  'visakhapatnam':[17.6868,83.2185],'vizag':[17.6868,83.2185],'patna':[25.5941,85.1376],
+  'vadodara':[22.3072,73.1812],'raipur':[21.2514,81.6296],'agra':[27.1767,78.0081],
+  'nashik':[19.9975,73.7898],'ranchi':[23.3441,85.3096],'varanasi':[25.3176,82.9739],'banaras':[25.3176,82.9739],
+  'amritsar':[31.6340,74.8723],'allahabad':[25.4358,81.8463],'prayagraj':[25.4358,81.8463],
+  'coimbatore':[11.0168,76.9558],'jabalpur':[23.1815,79.9864],'gwalior':[26.2183,78.1828],
+  'vijayawada':[16.5062,80.6480],'jodhpur':[26.2389,73.0243],'madurai':[9.9252,78.1198],
+  'kota':[25.2138,75.8648],'chandigarh':[30.7333,76.7794],'guwahati':[26.1445,91.7362],
+  'solapur':[17.6805,75.9064],'hubballi':[15.3647,75.1240],'hubli':[15.3647,75.1240],
+  'tiruchirappalli':[10.7905,78.7047],'trichy':[10.7905,78.7047],'bareilly':[28.3670,79.4304],
+  'mysuru':[12.2958,76.6394],'mysore':[12.2958,76.6394],'tiruppur':[11.1085,77.3411],
+  'gurgaon':[28.4595,77.0266],'gurugram':[28.4595,77.0266],'noida':[28.5355,77.3910],
+  'aligarh':[27.8974,78.0880],'jalandhar':[31.3260,75.5762],'bhubaneswar':[20.2961,85.8245],
+  'salem':[11.6643,78.1460],'thiruvananthapuram':[8.5241,76.9366],'trivandrum':[8.5241,76.9366],
+  'kochi':[9.9312,76.2673],'cochin':[9.9312,76.2673],'dehradun':[30.3165,78.0322],
+  'ujjain':[23.1765,75.7885],'bhilai':[21.1938,81.3509],'gorakhpur':[26.7606,83.3732],
+  'guntur':[16.3067,80.4365],'bikaner':[28.0229,73.3119],'amravati':[20.9374,77.7796],
+  'shimla':[31.1048,77.1734],'faridabad':[28.4089,77.3178],'meerut':[28.9845,77.7064],
+  'rajkot':[22.3039,70.8022],'aurangabad':[19.8762,75.3433],'howrah':[22.5958,88.2636],
+  'dhanbad':[23.7957,86.4304],'ludhiana':[30.9010,75.8573],'navi mumbai':[19.0330,73.0297],
+  'ghaziabad':[28.6692,77.4538],'saharanpur':[29.9680,77.5510],'warangal':[17.9689,79.5941],
+  'srinagar':[34.0837,74.7973],'jamshedpur':[22.8046,86.2029],'mangaluru':[12.9141,74.8560],
+  'mangalore':[12.9141,74.8560],'cuttack':[20.4625,85.8830],'ajmer':[26.4499,74.6399],
+  'kolhapur':[16.7050,74.2433],'udaipur':[24.5854,73.7125],'bhavnagar':[21.7645,72.1519],
+  'belagavi':[15.8497,74.4977],'belgaum':[15.8497,74.4977],'jamnagar':[22.4707,70.0577],
+  'kalaburagi':[17.3297,76.8343],'jhansi':[25.4484,78.5685],'moradabad':[28.8386,78.7733],
+  'tirupati':[13.6288,79.4192],'agartala':[23.8315,91.2868],'imphal':[24.8170,93.9368],
+  'shillong':[25.5788,91.8933],'gangtok':[27.3314,88.6138],'panaji':[15.4909,73.8278],
+  'nanded':[19.1383,77.3210],'rohtak':[28.8955,76.6066],'firozabad':[27.1591,78.3957],
+  'loni':[28.7521,77.2880],'pimpri':[18.6279,73.7997],'bhiwandi':[19.2967,73.0580],
+  // Global cities
+  'new york':[40.7128,-74.0060],'new york city':[40.7128,-74.0060],'los angeles':[34.0522,-118.2437],
+  'chicago':[41.8781,-87.6298],'houston':[29.7604,-95.3698],'miami':[25.7617,-80.1918],
+  'san francisco':[37.7749,-122.4194],'seattle':[47.6062,-122.3321],'boston':[42.3601,-71.0589],
+  'dallas':[32.7767,-96.7970],'atlanta':[33.7490,-84.3880],'denver':[39.7392,-104.9903],
+  'phoenix':[33.4484,-112.0740],'san jose':[37.3382,-121.8863],'san diego':[32.7157,-117.1611],
+  'london':[51.5074,-0.1278],'paris':[48.8566,2.3522],'berlin':[52.5200,13.4050],
+  'amsterdam':[52.3676,4.9041],'madrid':[40.4168,-3.7038],'barcelona':[41.3851,2.1734],
+  'rome':[41.9028,12.4964],'milan':[45.4642,9.1900],'vienna':[48.2082,16.3738],
+  'zurich':[47.3769,8.5417],'stockholm':[59.3293,18.0686],'oslo':[59.9139,10.7522],
+  'copenhagen':[55.6761,12.5683],'brussels':[50.8503,4.3517],'warsaw':[52.2297,21.0122],
+  'prague':[50.0755,14.4378],'budapest':[47.4979,19.0402],'athens':[37.9838,23.7275],
+  'moscow':[55.7558,37.6176],'kyiv':[50.4501,30.5234],'istanbul':[41.0082,28.9784],
+  'dubai':[25.2048,55.2708],'abu dhabi':[24.4539,54.3773],'riyadh':[24.7136,46.6753],
+  'tehran':[35.6892,51.3890],'baghdad':[33.3152,44.3661],'karachi':[24.8607,67.0011],
+  'lahore':[31.5204,74.3587],'islamabad':[33.7294,73.0931],'dhaka':[23.8103,90.4125],
+  'colombo':[6.9271,79.8612],'kathmandu':[27.7172,85.3240],
+  'beijing':[39.9042,116.4074],'shanghai':[31.2304,121.4737],'shenzhen':[22.5431,114.0579],
+  'guangzhou':[23.1291,113.2644],'hong kong':[22.3193,114.1694],'taipei':[25.0330,121.5654],
+  'tokyo':[35.6762,139.6503],'osaka':[34.6937,135.5023],'seoul':[37.5665,126.9780],
+  'singapore':[1.3521,103.8198],'kuala lumpur':[3.1390,101.6869],'bangkok':[13.7563,100.5018],
+  'manila':[14.5995,120.9842],'yangon':[16.8661,96.1951],
+  'jakarta':[-6.2088,106.8456],'sydney':[-33.8688,151.2093],'melbourne':[-37.8136,144.9631],'brisbane':[-27.4698,153.0251],
+  'perth':[-31.9505,115.8605],'auckland':[-36.8485,174.7633],
+  'toronto':[43.6532,-79.3832],'montreal':[45.5017,-73.5673],'vancouver':[49.2827,-123.1207],
+  'mexico city':[19.4326,-99.1332],'sao paulo':[-23.5505,-46.6333],'rio de janeiro':[-22.9068,-43.1729],
+  'buenos aires':[-34.6037,-58.3816],'lima':[-12.0464,-77.0428],'bogota':[4.7110,-74.0721],
+  'cairo':[30.0444,31.2357],'lagos':[6.5244,3.3792],'nairobi':[-1.2921,36.8219],
+  'johannesburg':[-26.2041,28.0473],'casablanca':[33.5731,-7.5898],'addis ababa':[9.0320,38.7469],
+  'kampala':[0.3476,32.5825],'dar es salaam':[-6.7924,39.2083],
+  'tashkent':[41.2995,69.2401],'baku':[40.4093,49.8671],'tbilisi':[41.6938,44.8015],
+  'kabul':[34.5553,69.2075]
+};
+
+// Country centroid fallbacks
+const COUNTRY_LL = {
+  'india':[20.5937,78.9629],'united states':[37.0902,-95.7129],'united kingdom':[55.3781,-3.4360],
+  'canada':[56.1304,-106.3468],'australia':[-25.2744,133.7751],'germany':[51.1657,10.4515],
+  'france':[46.2276,2.2137],'italy':[41.8719,12.5674],'spain':[40.4637,-3.7492],
+  'russia':[61.5240,105.3188],'china':[35.8617,104.1954],'japan':[36.2048,138.2529],
+  'south korea':[35.9078,127.7669],'singapore':[1.3521,103.8198],'malaysia':[4.2105,101.9758],
+  'indonesia':[-0.7893,113.9213],'thailand':[15.8700,100.9925],'vietnam':[14.0583,108.2772],
+  'philippines':[12.8797,121.7740],'pakistan':[30.3753,69.3451],'bangladesh':[23.6850,90.3563],
+  'sri lanka':[7.8731,80.7718],'nepal':[28.3949,84.1240],'saudi arabia':[23.8859,45.0792],
+  'united arab emirates':[23.4241,53.8478],'uae':[23.4241,53.8478],'turkey':[38.9637,35.2433],
+  'iran':[32.4279,53.6880],'egypt':[26.8206,30.8025],'nigeria':[9.0820,8.6753],
+  'kenya':[-0.0236,37.9062],'south africa':[-30.5595,22.9375],'brazil':[-14.2350,-51.9253],
+  'mexico':[23.6345,-102.5528],'colombia':[4.5709,-74.2973],'argentina':[-38.4161,-63.6167],
+  'netherlands':[52.1326,5.2913],'sweden':[60.1282,18.6435],'norway':[60.4720,8.4689],
+  'denmark':[56.2639,9.5018],'poland':[51.9194,19.1451],'ukraine':[48.3794,31.1656],
+  'taiwan':[23.5937,121.0193],'new zealand':[-40.9006,174.8860],'myanmar':[21.9162,95.9560],
+  'ethiopia':[9.1450,40.4897],'ghana':[7.9465,-1.0232],'tanzania':[-6.3690,34.8888],
+};
+
+function getLatLng(city, country) {
+  const c = (city || '').toLowerCase().trim();
+  const co = (country || '').toLowerCase().trim();
+  if (CITY_LL[c]) return CITY_LL[c];
+  // Try prefix match (e.g., "greater mumbai" -> "mumbai")
+  for (const [key, ll] of Object.entries(CITY_LL)) {
+    if (c.includes(key) || key.includes(c)) return ll;
+  }
+  return COUNTRY_LL[co] || null;
+}
+
+function setGeoRange(range) {
+  currentGeoRange = range;
+  fetchGeoTraffic();
+}
+
+async function fetchGeoTraffic() {
+  try {
+    const data = await fetch(`/api/geo-traffic?range=${currentGeoRange}`).then(r => r.json());
+    if (data.error) throw new Error(data.error);
+
+    // Init map once
+    if (!geoMap) {
+      geoMap = L.map('geo-map', { zoomControl: true, scrollWheelZoom: false, attributionControl: true });
+      L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
+        attribution: '&copy; <a href="https://carto.com/" target="_blank">CARTO</a> &copy; <a href="https://www.openstreetmap.org/copyright" target="_blank">OSM</a>',
+        subdomains: 'abcd', maxZoom: 19
+      }).addTo(geoMap);
+      geoMap.setView([22, 82], 4);
+    }
+
+    // Clear old markers
+    if (geoMarkers) geoMarkers.clearLayers();
+    geoMarkers = L.layerGroup().addTo(geoMap);
+
+    // Resolve lat/lng for each row
+    const placed = data
+      .map(r => ({ ...r, ll: getLatLng(r.city, r.country) }))
+      .filter(r => r.ll);
+
+    const maxViews = placed[0]?.views || 1;
+
+    placed.forEach(r => {
+      const pct = r.views / maxViews;
+      const radius = 5 + pct * 22;
+      const isIndia = r.country === 'India';
+      const color = isIndia ? '#ff3b3b' : '#00d4aa';
+      const marker = L.circleMarker(r.ll, {
+        radius, fillColor: color, color: color,
+        weight: 1.5, opacity: 0.9, fillOpacity: 0.25 + pct * 0.45
+      });
+      const esc = s => String(s).replace(/</g,'&lt;').replace(/>/g,'&gt;');
+      marker.bindTooltip(`<strong style="font-size:0.8rem">${esc(r.city)}</strong><br>${esc(r.country)}<br><span style="color:${color}">${r.views.toLocaleString()} views</span>`, {
+        className: 'geo-tip', sticky: true, direction: 'top', offset: [0, -8]
+      });
+      geoMarkers.addLayer(marker);
+    });
+
+    // Legend
+    const india = data.filter(r => r.country === 'India').reduce((s, r) => s + r.views, 0);
+    const intl = data.filter(r => r.country !== 'India').reduce((s, r) => s + r.views, 0);
+    const total = india + intl;
+    document.getElementById('geo-legend').innerHTML = `
+      <div style="color:var(--text);font-weight:600;margin-bottom:6px;letter-spacing:1px">VIEWS BY REGION</div>
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px">
+        <div style="width:10px;height:10px;border-radius:50%;background:#ff3b3b;flex-shrink:0"></div>
+        <span>India</span><span style="margin-left:auto;color:var(--text)">${india.toLocaleString()}</span>
+      </div>
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">
+        <div style="width:10px;height:10px;border-radius:50%;background:#00d4aa;flex-shrink:0"></div>
+        <span>International</span><span style="margin-left:auto;color:var(--text)">${intl.toLocaleString()}</span>
+      </div>
+      <div style="border-top:1px solid var(--border);padding-top:6px;font-size:0.6rem">${placed.length} cities mapped${data.length - placed.length > 0 ? ` · ${data.length - placed.length} unresolved` : ''}</div>
+    `;
+
+    document.getElementById('geo-updated').textContent = 'Updated ' + timeLabel();
+
+    // Fit bounds to placed markers
+    if (placed.length > 1) {
+      const bounds = L.latLngBounds(placed.map(r => r.ll));
+      geoMap.fitBounds(bounds, { padding: [40, 40], maxZoom: 8, animate: false });
+    }
+  } catch (e) {
+    showError(e.message);
+    document.getElementById('geo-legend').innerHTML = `<span style="color:var(--accent)">Error: ${e.message}</span>`;
+  }
+}
+
 // ── Dashboard Polling ────────────────────────────────────────
 let pollIntervals = [];
 
@@ -616,6 +840,12 @@ function startDashboard() {
   pollIntervals.forEach(clearInterval);
   pollIntervals = [];
   topNewsInterval = null;
+
+  // Reset geo map for new property
+  if (geoMap) { geoMap.remove(); geoMap = null; geoMarkers = null; }
+  currentGeoRange = '7days';
+  document.getElementById('geo-range-select').value = '7days';
+  document.getElementById('geo-legend').innerHTML = '<div style="color:var(--muted);letter-spacing:1px">LOADING MAP...</div>';
 
   // Reset sparkline and ranges for new property
   sparkData = Array(30).fill(0);
@@ -632,12 +862,14 @@ function startDashboard() {
   fetchRealtime();
   fetchTopNews();
   fetchCategories();
+  fetchGeoTraffic();
 
   // Polling
   pollIntervals.push(setInterval(fetchRealtime, 15000));
   topNewsInterval = setInterval(fetchTopNews, 30000);
   pollIntervals.push(topNewsInterval);
   pollIntervals.push(setInterval(fetchCategories, 5 * 60000));
+  pollIntervals.push(setInterval(fetchGeoTraffic, 5 * 60000));
 }
 </script>
 </body>
