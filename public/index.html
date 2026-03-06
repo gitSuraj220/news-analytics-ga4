@@ -194,11 +194,7 @@ setInterval(() => { document.getElementById('htime').textContent = new Date().to
 async function checkAuth() {
   const d = await fetch('/auth/me').then(r => r.json());
   if (d.loggedIn) {
-    document.getElementById('login-screen').classList.add('hidden');
-    document.getElementById('user-info').style.display = 'flex';
-    document.getElementById('user-photo').src = d.photo;
-    document.getElementById('user-name').textContent = d.name;
-    startDashboard();
+    window.location.replace('/dashboard.html');
   }
 }
 

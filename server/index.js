@@ -72,7 +72,7 @@ app.get('/auth/google', passport.authenticate('google', {
 }));
 app.get('/auth/google/callback',
   passport.authenticate('google', { failureRedirect: '/?error=1' }),
-  (req, res) => res.redirect('/')
+  (req, res) => res.redirect('/dashboard.html')
 );
 app.get('/auth/logout', (req, res) => req.logout(() => res.redirect('/')));
 app.get('/auth/me', (req, res) => {
