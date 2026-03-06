@@ -430,7 +430,9 @@ app.get('/api/ga4-dims', requireProperty, async (req, res) => {
 app.get('/api/geo-traffic', requireProperty, async (req, res) => {
   try {
     const range = req.query.range || '7days';
-    const k = CK(req, `geo_${range}`);
+    const k = range === 'custom'
+      ? CK(req, `geo_custom_${req.query.start}_${req.query.end}`)
+      : CK(req, `geo_${range}`);
     if (cache.has(k)) return res.json(cache.get(k));
     const now = new Date();
     let startDate = '7daysAgo', endDate = 'today';
@@ -438,6 +440,10 @@ app.get('/api/geo-traffic', requireProperty, async (req, res) => {
     else if (range === '7days')  startDate = '7daysAgo';
     else if (range === '30days') startDate = '30daysAgo';
     else if (range === 'month')  startDate = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}-01`;
+    else if (range === 'custom') {
+      startDate = req.query.start; endDate = req.query.end || 'today';
+      if (!startDate) return res.status(400).json({ error: 'start required' });
+    }
     const r = await ga(req.user).properties.runReport({
       property: PROP(req),
       requestBody: {

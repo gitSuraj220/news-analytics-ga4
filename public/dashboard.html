@@ -430,7 +430,14 @@
       <option value="today">Today</option>
       <option value="30days">Last 30 Days</option>
       <option value="month">This Month</option>
+      <option value="custom">Custom Range</option>
     </select>
+    <div id="geo-custom-wrap" class="custom-date-wrap">
+      <input type="date" id="geo-range-start">
+      <span style="color:var(--muted)">→</span>
+      <input type="date" id="geo-range-end">
+      <button onclick="applyGeoCustomRange()">Go</button>
+    </div>
     <span class="last-updated" id="geo-updated"></span>
   </div>
   <div style="background:var(--surface);border:1px solid var(--border);border-radius:16px;overflow:hidden;margin-bottom:2.5rem;position:relative">
@@ -750,6 +757,7 @@ async function fetchCategoryNews(slug) {
 
 // ── Geo Traffic Map ──────────────────────────────────────────
 let geoMap = null, geoMarkers = null, currentGeoRange = '7days';
+let geoCustomStart = '', geoCustomEnd = '';
 
 // City -> [lat, lng] lookup table (lowercase keys)
 const CITY_LL = {
@@ -856,12 +864,29 @@ function getLatLng(city, country) {
 
 function setGeoRange(range) {
   currentGeoRange = range;
+  const wrap = document.getElementById('geo-custom-wrap');
+  if (range === 'custom') {
+    wrap.style.display = 'flex';
+  } else {
+    wrap.style.display = 'none';
+    fetchGeoTraffic();
+  }
+}
+
+function applyGeoCustomRange() {
+  geoCustomStart = document.getElementById('geo-range-start').value;
+  geoCustomEnd = document.getElementById('geo-range-end').value;
+  if (!geoCustomStart) return;
   fetchGeoTraffic();
 }
 
 async function fetchGeoTraffic() {
   try {
-    const data = await fetch(`/api/geo-traffic?range=${currentGeoRange}`).then(r => r.json());
+    let url = `/api/geo-traffic?range=${currentGeoRange}`;
+    if (currentGeoRange === 'custom' && geoCustomStart) {
+      url += `&start=${geoCustomStart}&end=${geoCustomEnd || 'today'}`;
+    }
+    const data = await fetch(url).then(r => r.json());
     if (data.error) throw new Error(data.error);
 
     // Init map once
@@ -872,6 +897,8 @@ async function fetchGeoTraffic() {
         subdomains: 'abcd', maxZoom: 19
       }).addTo(geoMap);
       geoMap.setView([22, 82], 4);
+      // Fix: Leaflet tiles don't render if container size wasn't settled on init
+      setTimeout(() => geoMap && geoMap.invalidateSize(), 100);
     }
 
     // Clear old markers
@@ -942,8 +969,9 @@ function startDashboard() {
 
   // Reset geo map for new property
   if (geoMap) { geoMap.remove(); geoMap = null; geoMarkers = null; }
-  currentGeoRange = '7days';
+  currentGeoRange = '7days'; geoCustomStart = ''; geoCustomEnd = '';
   document.getElementById('geo-range-select').value = '7days';
+  document.getElementById('geo-custom-wrap').style.display = 'none';
   document.getElementById('geo-legend').innerHTML = '<div style="color:var(--muted);letter-spacing:1px">LOADING MAP...</div>';
 
   // Reset sparkline and ranges for new property
