@@ -42,14 +42,14 @@
   .property-switcher {
     display: flex; align-items: center; gap: 8px; cursor: pointer;
     font-family: 'IBM Plex Mono', monospace; font-size: 0.7rem;
-    color: var(--text); background: var(--surface2);
-    border: 1px solid var(--border); border-radius: 8px;
-    padding: 5px 12px; transition: border-color 0.2s;
-    max-width: 220px; overflow: hidden;
+    color: var(--accent3); background: rgba(0,212,170,0.08);
+    border: 1px solid rgba(0,212,170,0.4); border-radius: 8px;
+    padding: 6px 14px; transition: background 0.2s, border-color 0.2s;
+    max-width: 260px; overflow: hidden;
   }
-  .property-switcher:hover { border-color: var(--accent3); }
+  .property-switcher:hover { background: rgba(0,212,170,0.16); border-color: var(--accent3); }
   .property-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-  .switch-icon { color: var(--muted); flex-shrink: 0; }
+  .switch-icon { color: var(--accent3); flex-shrink: 0; font-size: 0.85rem; }
 
   .user-info { display: flex; align-items: center; gap: 10px; }
   .user-avatar { width: 30px; height: 30px; border-radius: 50%; border: 1px solid var(--border); }
@@ -321,8 +321,9 @@
   <div class="logo">News<span>Analytics</span></div>
   <div class="header-right">
     <div class="live-badge"><div class="live-dot"></div>GA4 LIVE</div>
-    <div class="property-switcher" id="property-switcher" onclick="openPropertyPicker()" title="Switch property">
-      <span class="property-name" id="property-name-label">—</span>
+    <div class="property-switcher" id="property-switcher" onclick="openPropertyPicker()" title="Click to select or change GA4 property">
+      <span style="color:var(--muted);font-size:0.6rem;letter-spacing:1px">PROPERTY</span>
+      <span class="property-name" id="property-name-label">— Select —</span>
       <span class="switch-icon">⇅</span>
     </div>
     <div class="user-info" id="user-info"></div>

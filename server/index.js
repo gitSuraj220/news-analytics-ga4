@@ -74,7 +74,10 @@ app.get('/auth/google/callback',
   passport.authenticate('google', { failureRedirect: '/?error=1' }),
   (req, res) => res.redirect('/dashboard.html')
 );
-app.get('/auth/logout', (req, res) => req.logout(() => res.redirect('/')));
+app.get('/auth/logout', (req, res) => req.logout(() => {
+  req.session = null; // wipe entire cookie-session so propertyId doesn't persist on next login
+  res.redirect('/');
+}));
 app.get('/auth/me', (req, res) => {
   if (!req.isAuthenticated()) return res.json({ loggedIn: false });
   res.json({
