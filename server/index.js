@@ -66,6 +66,11 @@ const PROP = (req) => `properties/${req.session.propertyId || process.env.GA4_PR
 // Cache key scoped to property so users don't see each other's data
 const CK = (req, key) => `${req.session.propertyId || 'default'}_${key}`;
 
+// ── Static page clean URLs ─────────────────────────────────
+app.get('/privacy', (req, res) => res.sendFile(path.join(__dirname, '../public/privacy.html')));
+app.get('/terms',   (req, res) => res.sendFile(path.join(__dirname, '../public/terms.html')));
+app.get('/dashboard', (req, res) => res.redirect('/dashboard.html'));
+
 // ── Auth Routes ───────────────────────────────────────────
 app.get('/auth/google', passport.authenticate('google', {
   scope: ['profile', 'email', 'https://www.googleapis.com/auth/analytics.readonly']
