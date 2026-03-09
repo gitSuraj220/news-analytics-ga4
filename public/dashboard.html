@@ -129,12 +129,17 @@
   .rt-count { font-family: 'Bebas Neue', sans-serif; font-size: 5rem; line-height: 1; color: var(--text); letter-spacing: 2px; }
   .rt-count span { color: var(--accent); }
   .rt-sub { font-size: 0.85rem; color: var(--muted); margin-top: 4px; }
-  .rt-stats { display: flex; gap: 2.5rem; flex-wrap: wrap; }
+  .rt-stats { display: flex; gap: 2rem; flex-wrap: wrap; align-items: flex-start; }
   .rt-stat { text-align: center; }
   .rt-stat-val { font-family: 'Bebas Neue', sans-serif; font-size: 2rem; letter-spacing: 1px; }
   .rt-stat-val.green { color: var(--accent3); }
   .rt-stat-val.yellow { color: var(--accent2); }
   .rt-stat-lbl { font-size: 0.72rem; color: var(--muted); letter-spacing: 1px; font-family: 'IBM Plex Mono', monospace; text-transform: uppercase; }
+  .rt-divider { width: 1px; height: 52px; background: var(--border); align-self: center; flex-shrink: 0; }
+  .rt-period-group { display: flex; flex-direction: column; gap: 0.6rem; }
+  .rt-period-header { display: flex; align-items: center; gap: 8px; }
+  .rt-period-stats { display: flex; gap: 2rem; }
+  .banner-range { font-size: 0.62rem !important; padding: 3px 8px !important; letter-spacing: 0 !important; }
   .sparkline-wrap { flex: 1; min-width: 220px; }
   .sparkline-label { font-family: 'IBM Plex Mono', monospace; font-size: 0.65rem; color: var(--muted); letter-spacing: 2px; margin-bottom: 8px; }
   canvas#spark { width: 100%; height: 60px; }
@@ -340,24 +345,38 @@
     <div>
       <div class="rt-label">▸ Active Users Right Now</div>
       <div class="rt-count"><span id="rt-num">—</span></div>
-      <div class="rt-sub">live readers on your website</div>
+      <div class="rt-sub">live visitors on your website</div>
     </div>
     <div class="rt-stats">
-      <div class="rt-stat">
-        <div class="rt-stat-val green" id="rt-in">—</div>
-        <div class="rt-stat-lbl">New/min</div>
-      </div>
       <div class="rt-stat">
         <div class="rt-stat-val" id="rt-page">—</div>
         <div class="rt-stat-lbl">Pages/min</div>
       </div>
-      <div class="rt-stat">
-        <div class="rt-stat-val yellow" id="rt-bounce">—</div>
-        <div class="rt-stat-lbl">Bounce Rate <small style="font-size:0.5em">(MTD)</small></div>
-      </div>
-      <div class="rt-stat">
-        <div class="rt-stat-val" id="rt-avg">—</div>
-        <div class="rt-stat-lbl">Avg Time <small style="font-size:0.5em">(MTD)</small></div>
+      <div class="rt-divider"></div>
+      <div class="rt-period-group">
+        <div class="rt-period-header">
+          <span style="font-family:'IBM Plex Mono',monospace;font-size:0.6rem;letter-spacing:1px;color:var(--muted);text-transform:uppercase">Period</span>
+          <select id="banner-range-select" class="range-select banner-range" onchange="fetchBannerStats(this.value)">
+            <option value="today">Today</option>
+            <option value="7days" selected>Last 7 Days</option>
+            <option value="30days">Last 30 Days</option>
+            <option value="month">This Month</option>
+          </select>
+        </div>
+        <div class="rt-period-stats">
+          <div class="rt-stat">
+            <div class="rt-stat-val yellow" id="banner-bounce">—</div>
+            <div class="rt-stat-lbl">Bounce Rate</div>
+          </div>
+          <div class="rt-stat">
+            <div class="rt-stat-val green" id="banner-unique">—</div>
+            <div class="rt-stat-lbl">Unique Visitors</div>
+          </div>
+          <div class="rt-stat">
+            <div class="rt-stat-val" id="banner-avg">—</div>
+            <div class="rt-stat-lbl">Avg Eng. Time</div>
+          </div>
+        </div>
       </div>
     </div>
     <div class="sparkline-wrap">
@@ -597,12 +616,22 @@ async function fetchRealtime() {
     const rt = await fetch('/api/realtime').then(r => r.json());
     if (rt.error) throw new Error(rt.error);
     document.getElementById('rt-num').textContent = (rt.activeUsers || 0).toLocaleString('en-IN');
-    document.getElementById('rt-in').textContent = '+' + (rt.newPerMin || 0);
     document.getElementById('rt-page').textContent = (rt.pageviewsPerMin || 0);
-    document.getElementById('rt-bounce').textContent = rt.bounceRate || '—';
-    document.getElementById('rt-avg').textContent = rt.avgDuration || '—';
     sparkData.push(rt.activeUsers || 0); sparkData.shift();
     drawSparkline();
+  } catch (e) { showError(e.message); }
+}
+
+// ── Fetch Banner Stats (period-controlled) ───────────────────
+let currentBannerRange = '7days';
+async function fetchBannerStats(range) {
+  if (range) currentBannerRange = range;
+  try {
+    const d = await fetch(`/api/banner-stats?range=${currentBannerRange}`).then(r => r.json());
+    if (d.error) throw new Error(d.error);
+    document.getElementById('banner-bounce').textContent = d.bounceRate || '—';
+    document.getElementById('banner-unique').textContent = (d.uniqueVisitors || 0).toLocaleString('en-IN');
+    document.getElementById('banner-avg').textContent = d.avgEngagementTime || '—';
   } catch (e) { showError(e.message); }
 }
 
@@ -911,10 +940,10 @@ async function fetchGeoTraffic() {
       .map(r => ({ ...r, ll: getLatLng(r.city, r.country) }))
       .filter(r => r.ll);
 
-    const maxViews = placed[0]?.views || 1;
+    const maxVisitors = placed[0]?.visitors || 1;
 
     placed.forEach(r => {
-      const pct = r.views / maxViews;
+      const pct = r.visitors / maxVisitors;
       const radius = 5 + pct * 22;
       const isIndia = r.country === 'India';
       const color = isIndia ? '#ff3b3b' : '#00d4aa';
@@ -923,18 +952,17 @@ async function fetchGeoTraffic() {
         weight: 1.5, opacity: 0.9, fillOpacity: 0.25 + pct * 0.45
       });
       const esc = s => String(s).replace(/</g,'&lt;').replace(/>/g,'&gt;');
-      marker.bindTooltip(`<strong style="font-size:0.8rem">${esc(r.city)}</strong><br>${esc(r.country)}<br><span style="color:${color}">${r.views.toLocaleString()} views</span>`, {
+      marker.bindTooltip(`<strong style="font-size:0.8rem">${esc(r.city)}</strong><br>${esc(r.country)}<br><span style="color:${color}">${r.visitors.toLocaleString()} visitors</span>`, {
         className: 'geo-tip', sticky: true, direction: 'top', offset: [0, -8]
       });
       geoMarkers.addLayer(marker);
     });
 
     // Legend
-    const india = data.filter(r => r.country === 'India').reduce((s, r) => s + r.views, 0);
-    const intl = data.filter(r => r.country !== 'India').reduce((s, r) => s + r.views, 0);
-    const total = india + intl;
+    const india = data.filter(r => r.country === 'India').reduce((s, r) => s + r.visitors, 0);
+    const intl = data.filter(r => r.country !== 'India').reduce((s, r) => s + r.visitors, 0);
     document.getElementById('geo-legend').innerHTML = `
-      <div style="color:var(--text);font-weight:600;margin-bottom:6px;letter-spacing:1px">VIEWS BY REGION</div>
+      <div style="color:var(--text);font-weight:600;margin-bottom:6px;letter-spacing:1px">VISITORS BY REGION</div>
       <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px">
         <div style="width:10px;height:10px;border-radius:50%;background:#ff3b3b;flex-shrink:0"></div>
         <span>India</span><span style="margin-left:auto;color:var(--text)">${india.toLocaleString()}</span>
@@ -986,14 +1014,23 @@ function startDashboard() {
   document.getElementById('custom-range-wrap').style.display = 'none';
   document.getElementById('cat-custom-wrap').style.display = 'none';
 
+  // Reset banner stats
+  currentBannerRange = '7days';
+  document.getElementById('banner-range-select').value = '7days';
+  document.getElementById('banner-bounce').textContent = '—';
+  document.getElementById('banner-unique').textContent = '—';
+  document.getElementById('banner-avg').textContent = '—';
+
   // Initial load
   fetchRealtime();
+  fetchBannerStats('7days');
   fetchTopNews();
   fetchCategories();
   fetchGeoTraffic();
 
   // Polling
   pollIntervals.push(setInterval(fetchRealtime, 15000));
+  pollIntervals.push(setInterval(() => fetchBannerStats(), 120000));
   topNewsInterval = setInterval(fetchTopNews, 30000);
   pollIntervals.push(topNewsInterval);
   pollIntervals.push(setInterval(fetchCategories, 5 * 60000));

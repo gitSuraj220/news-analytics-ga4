@@ -434,6 +434,41 @@ app.get('/api/ga4-dims', requireProperty, async (req, res) => {
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
+// ── API: Banner Stats (bounce rate, unique visitors, avg engagement) ────
+app.get('/api/banner-stats', requireProperty, async (req, res) => {
+  try {
+    const range = req.query.range || '7days';
+    const k = CK(req, `banner_${range}`);
+    if (cache.has(k)) return res.json(cache.get(k));
+    const now = new Date();
+    let startDate = '7daysAgo', endDate = 'today';
+    if (range === 'today')       startDate = 'today';
+    else if (range === '7days')  startDate = '7daysAgo';
+    else if (range === '30days') startDate = '30daysAgo';
+    else if (range === 'month')  startDate = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}-01`;
+    const r = await ga(req.user).properties.runReport({
+      property: PROP(req),
+      requestBody: {
+        dateRanges: [{ startDate, endDate }],
+        metrics: [
+          { name: 'bounceRate' },
+          { name: 'totalUsers' },
+          { name: 'averageSessionDuration' }
+        ]
+      }
+    });
+    const mv = r.data.rows?.[0]?.metricValues || [];
+    const dur = parseInt(mv[2]?.value || 0);
+    const d = {
+      bounceRate: parseFloat(mv[0]?.value || 0).toFixed(1) + '%',
+      uniqueVisitors: parseInt(mv[1]?.value || 0),
+      avgEngagementTime: `${Math.floor(dur / 60)}:${(dur % 60).toString().padStart(2, '0')}`
+    };
+    cache.set(k, d, 120);
+    res.json(d);
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
 // ── API: Geo Traffic (city + country breakdown) ────────────
 app.get('/api/geo-traffic', requireProperty, async (req, res) => {
   try {
@@ -456,9 +491,9 @@ app.get('/api/geo-traffic', requireProperty, async (req, res) => {
       property: PROP(req),
       requestBody: {
         dateRanges: [{ startDate, endDate }],
-        metrics: [{ name: 'screenPageViews' }],
+        metrics: [{ name: 'totalUsers' }],
         dimensions: [{ name: 'city' }, { name: 'country' }],
-        orderBys: [{ metric: { metricName: 'screenPageViews' }, desc: true }],
+        orderBys: [{ metric: { metricName: 'totalUsers' }, desc: true }],
         limit: 250
       }
     });
@@ -467,7 +502,7 @@ app.get('/api/geo-traffic', requireProperty, async (req, res) => {
       .map(row => ({
         city: row.dimensionValues[0].value,
         country: row.dimensionValues[1].value,
-        views: parseInt(row.metricValues[0].value)
+        visitors: parseInt(row.metricValues[0].value)
       }));
     cache.set(k, rows, 300);
     res.json(rows);
