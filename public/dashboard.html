@@ -42,14 +42,14 @@
   .property-switcher {
     display: flex; align-items: center; gap: 8px; cursor: pointer;
     font-family: 'IBM Plex Mono', monospace; font-size: 0.7rem;
-    color: var(--text); background: var(--surface2);
-    border: 1px solid var(--border); border-radius: 8px;
-    padding: 5px 12px; transition: border-color 0.2s;
-    max-width: 220px; overflow: hidden;
+    color: var(--accent3); background: rgba(0,212,170,0.08);
+    border: 1px solid rgba(0,212,170,0.4); border-radius: 8px;
+    padding: 6px 14px; transition: background 0.2s, border-color 0.2s;
+    max-width: 260px; overflow: hidden;
   }
-  .property-switcher:hover { border-color: var(--accent3); }
+  .property-switcher:hover { background: rgba(0,212,170,0.16); border-color: var(--accent3); }
   .property-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-  .switch-icon { color: var(--muted); flex-shrink: 0; }
+  .switch-icon { color: var(--accent3); flex-shrink: 0; font-size: 0.85rem; }
 
   .user-info { display: flex; align-items: center; gap: 10px; }
   .user-avatar { width: 30px; height: 30px; border-radius: 50%; border: 1px solid var(--border); }
@@ -129,12 +129,17 @@
   .rt-count { font-family: 'Bebas Neue', sans-serif; font-size: 5rem; line-height: 1; color: var(--text); letter-spacing: 2px; }
   .rt-count span { color: var(--accent); }
   .rt-sub { font-size: 0.85rem; color: var(--muted); margin-top: 4px; }
-  .rt-stats { display: flex; gap: 2.5rem; flex-wrap: wrap; }
+  .rt-stats { display: flex; gap: 2rem; flex-wrap: wrap; align-items: flex-start; }
   .rt-stat { text-align: center; }
   .rt-stat-val { font-family: 'Bebas Neue', sans-serif; font-size: 2rem; letter-spacing: 1px; }
   .rt-stat-val.green { color: var(--accent3); }
   .rt-stat-val.yellow { color: var(--accent2); }
   .rt-stat-lbl { font-size: 0.72rem; color: var(--muted); letter-spacing: 1px; font-family: 'IBM Plex Mono', monospace; text-transform: uppercase; }
+  .rt-divider { width: 1px; height: 52px; background: var(--border); align-self: center; flex-shrink: 0; }
+  .rt-period-group { display: flex; flex-direction: column; gap: 0.6rem; }
+  .rt-period-header { display: flex; align-items: center; gap: 8px; }
+  .rt-period-stats { display: flex; gap: 2rem; }
+  .banner-range { font-size: 0.62rem !important; padding: 3px 8px !important; letter-spacing: 0 !important; }
   .sparkline-wrap { flex: 1; min-width: 220px; }
   .sparkline-label { font-family: 'IBM Plex Mono', monospace; font-size: 0.65rem; color: var(--muted); letter-spacing: 2px; margin-bottom: 8px; }
   canvas#spark { width: 100%; height: 60px; }
@@ -321,8 +326,9 @@
   <div class="logo">News<span>Analytics</span></div>
   <div class="header-right">
     <div class="live-badge"><div class="live-dot"></div>GA4 LIVE</div>
-    <div class="property-switcher" id="property-switcher" onclick="openPropertyPicker()" title="Switch property">
-      <span class="property-name" id="property-name-label">—</span>
+    <div class="property-switcher" id="property-switcher" onclick="openPropertyPicker()" title="Click to select or change GA4 property">
+      <span style="color:var(--muted);font-size:0.6rem;letter-spacing:1px">PROPERTY</span>
+      <span class="property-name" id="property-name-label">— Select —</span>
       <span class="switch-icon">⇅</span>
     </div>
     <div class="user-info" id="user-info"></div>
@@ -339,24 +345,38 @@
     <div>
       <div class="rt-label">▸ Active Users Right Now</div>
       <div class="rt-count"><span id="rt-num">—</span></div>
-      <div class="rt-sub">live readers on your website</div>
+      <div class="rt-sub">live visitors on your website</div>
     </div>
     <div class="rt-stats">
-      <div class="rt-stat">
-        <div class="rt-stat-val green" id="rt-in">—</div>
-        <div class="rt-stat-lbl">New/min</div>
-      </div>
       <div class="rt-stat">
         <div class="rt-stat-val" id="rt-page">—</div>
         <div class="rt-stat-lbl">Pages/min</div>
       </div>
-      <div class="rt-stat">
-        <div class="rt-stat-val yellow" id="rt-bounce">—</div>
-        <div class="rt-stat-lbl">Bounce Rate <small style="font-size:0.5em">(MTD)</small></div>
-      </div>
-      <div class="rt-stat">
-        <div class="rt-stat-val" id="rt-avg">—</div>
-        <div class="rt-stat-lbl">Avg Time <small style="font-size:0.5em">(MTD)</small></div>
+      <div class="rt-divider"></div>
+      <div class="rt-period-group">
+        <div class="rt-period-header">
+          <span style="font-family:'IBM Plex Mono',monospace;font-size:0.6rem;letter-spacing:1px;color:var(--muted);text-transform:uppercase">Period</span>
+          <select id="banner-range-select" class="range-select banner-range" onchange="fetchBannerStats(this.value)">
+            <option value="today">Today</option>
+            <option value="7days" selected>Last 7 Days</option>
+            <option value="30days">Last 30 Days</option>
+            <option value="month">This Month</option>
+          </select>
+        </div>
+        <div class="rt-period-stats">
+          <div class="rt-stat">
+            <div class="rt-stat-val yellow" id="banner-bounce">—</div>
+            <div class="rt-stat-lbl">Bounce Rate</div>
+          </div>
+          <div class="rt-stat">
+            <div class="rt-stat-val green" id="banner-unique">—</div>
+            <div class="rt-stat-lbl">Unique Visitors</div>
+          </div>
+          <div class="rt-stat">
+            <div class="rt-stat-val" id="banner-avg">—</div>
+            <div class="rt-stat-lbl">Avg Eng. Time</div>
+          </div>
+        </div>
       </div>
     </div>
     <div class="sparkline-wrap">
@@ -430,7 +450,14 @@
       <option value="today">Today</option>
       <option value="30days">Last 30 Days</option>
       <option value="month">This Month</option>
+      <option value="custom">Custom Range</option>
     </select>
+    <div id="geo-custom-wrap" class="custom-date-wrap">
+      <input type="date" id="geo-range-start">
+      <span style="color:var(--muted)">→</span>
+      <input type="date" id="geo-range-end">
+      <button onclick="applyGeoCustomRange()">Go</button>
+    </div>
     <span class="last-updated" id="geo-updated"></span>
   </div>
   <div style="background:var(--surface);border:1px solid var(--border);border-radius:16px;overflow:hidden;margin-bottom:2.5rem;position:relative">
@@ -589,12 +616,22 @@ async function fetchRealtime() {
     const rt = await fetch('/api/realtime').then(r => r.json());
     if (rt.error) throw new Error(rt.error);
     document.getElementById('rt-num').textContent = (rt.activeUsers || 0).toLocaleString('en-IN');
-    document.getElementById('rt-in').textContent = '+' + (rt.newPerMin || 0);
     document.getElementById('rt-page').textContent = (rt.pageviewsPerMin || 0);
-    document.getElementById('rt-bounce').textContent = rt.bounceRate || '—';
-    document.getElementById('rt-avg').textContent = rt.avgDuration || '—';
     sparkData.push(rt.activeUsers || 0); sparkData.shift();
     drawSparkline();
+  } catch (e) { showError(e.message); }
+}
+
+// ── Fetch Banner Stats (period-controlled) ───────────────────
+let currentBannerRange = '7days';
+async function fetchBannerStats(range) {
+  if (range) currentBannerRange = range;
+  try {
+    const d = await fetch(`/api/banner-stats?range=${currentBannerRange}`).then(r => r.json());
+    if (d.error) throw new Error(d.error);
+    document.getElementById('banner-bounce').textContent = d.bounceRate || '—';
+    document.getElementById('banner-unique').textContent = (d.uniqueVisitors || 0).toLocaleString('en-IN');
+    document.getElementById('banner-avg').textContent = d.avgEngagementTime || '—';
   } catch (e) { showError(e.message); }
 }
 
@@ -750,6 +787,7 @@ async function fetchCategoryNews(slug) {
 
 // ── Geo Traffic Map ──────────────────────────────────────────
 let geoMap = null, geoMarkers = null, currentGeoRange = '7days';
+let geoCustomStart = '', geoCustomEnd = '';
 
 // City -> [lat, lng] lookup table (lowercase keys)
 const CITY_LL = {
@@ -856,12 +894,29 @@ function getLatLng(city, country) {
 
 function setGeoRange(range) {
   currentGeoRange = range;
+  const wrap = document.getElementById('geo-custom-wrap');
+  if (range === 'custom') {
+    wrap.style.display = 'flex';
+  } else {
+    wrap.style.display = 'none';
+    fetchGeoTraffic();
+  }
+}
+
+function applyGeoCustomRange() {
+  geoCustomStart = document.getElementById('geo-range-start').value;
+  geoCustomEnd = document.getElementById('geo-range-end').value;
+  if (!geoCustomStart) return;
   fetchGeoTraffic();
 }
 
 async function fetchGeoTraffic() {
   try {
-    const data = await fetch(`/api/geo-traffic?range=${currentGeoRange}`).then(r => r.json());
+    let url = `/api/geo-traffic?range=${currentGeoRange}`;
+    if (currentGeoRange === 'custom' && geoCustomStart) {
+      url += `&start=${geoCustomStart}&end=${geoCustomEnd || 'today'}`;
+    }
+    const data = await fetch(url).then(r => r.json());
     if (data.error) throw new Error(data.error);
 
     // Init map once
@@ -872,6 +927,8 @@ async function fetchGeoTraffic() {
         subdomains: 'abcd', maxZoom: 19
       }).addTo(geoMap);
       geoMap.setView([22, 82], 4);
+      // Fix: Leaflet tiles don't render if container size wasn't settled on init
+      setTimeout(() => geoMap && geoMap.invalidateSize(), 100);
     }
 
     // Clear old markers
@@ -883,10 +940,10 @@ async function fetchGeoTraffic() {
       .map(r => ({ ...r, ll: getLatLng(r.city, r.country) }))
       .filter(r => r.ll);
 
-    const maxViews = placed[0]?.views || 1;
+    const maxVisitors = placed[0]?.visitors || 1;
 
     placed.forEach(r => {
-      const pct = r.views / maxViews;
+      const pct = r.visitors / maxVisitors;
       const radius = 5 + pct * 22;
       const isIndia = r.country === 'India';
       const color = isIndia ? '#ff3b3b' : '#00d4aa';
@@ -895,18 +952,17 @@ async function fetchGeoTraffic() {
         weight: 1.5, opacity: 0.9, fillOpacity: 0.25 + pct * 0.45
       });
       const esc = s => String(s).replace(/</g,'&lt;').replace(/>/g,'&gt;');
-      marker.bindTooltip(`<strong style="font-size:0.8rem">${esc(r.city)}</strong><br>${esc(r.country)}<br><span style="color:${color}">${r.views.toLocaleString()} views</span>`, {
+      marker.bindTooltip(`<strong style="font-size:0.8rem">${esc(r.city)}</strong><br>${esc(r.country)}<br><span style="color:${color}">${r.visitors.toLocaleString()} visitors</span>`, {
         className: 'geo-tip', sticky: true, direction: 'top', offset: [0, -8]
       });
       geoMarkers.addLayer(marker);
     });
 
     // Legend
-    const india = data.filter(r => r.country === 'India').reduce((s, r) => s + r.views, 0);
-    const intl = data.filter(r => r.country !== 'India').reduce((s, r) => s + r.views, 0);
-    const total = india + intl;
+    const india = data.filter(r => r.country === 'India').reduce((s, r) => s + r.visitors, 0);
+    const intl = data.filter(r => r.country !== 'India').reduce((s, r) => s + r.visitors, 0);
     document.getElementById('geo-legend').innerHTML = `
-      <div style="color:var(--text);font-weight:600;margin-bottom:6px;letter-spacing:1px">VIEWS BY REGION</div>
+      <div style="color:var(--text);font-weight:600;margin-bottom:6px;letter-spacing:1px">VISITORS BY REGION</div>
       <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px">
         <div style="width:10px;height:10px;border-radius:50%;background:#ff3b3b;flex-shrink:0"></div>
         <span>India</span><span style="margin-left:auto;color:var(--text)">${india.toLocaleString()}</span>
@@ -942,8 +998,9 @@ function startDashboard() {
 
   // Reset geo map for new property
   if (geoMap) { geoMap.remove(); geoMap = null; geoMarkers = null; }
-  currentGeoRange = '7days';
+  currentGeoRange = '7days'; geoCustomStart = ''; geoCustomEnd = '';
   document.getElementById('geo-range-select').value = '7days';
+  document.getElementById('geo-custom-wrap').style.display = 'none';
   document.getElementById('geo-legend').innerHTML = '<div style="color:var(--muted);letter-spacing:1px">LOADING MAP...</div>';
 
   // Reset sparkline and ranges for new property
@@ -957,14 +1014,23 @@ function startDashboard() {
   document.getElementById('custom-range-wrap').style.display = 'none';
   document.getElementById('cat-custom-wrap').style.display = 'none';
 
+  // Reset banner stats
+  currentBannerRange = '7days';
+  document.getElementById('banner-range-select').value = '7days';
+  document.getElementById('banner-bounce').textContent = '—';
+  document.getElementById('banner-unique').textContent = '—';
+  document.getElementById('banner-avg').textContent = '—';
+
   // Initial load
   fetchRealtime();
+  fetchBannerStats('7days');
   fetchTopNews();
   fetchCategories();
   fetchGeoTraffic();
 
   // Polling
   pollIntervals.push(setInterval(fetchRealtime, 15000));
+  pollIntervals.push(setInterval(() => fetchBannerStats(), 120000));
   topNewsInterval = setInterval(fetchTopNews, 30000);
   pollIntervals.push(topNewsInterval);
   pollIntervals.push(setInterval(fetchCategories, 5 * 60000));

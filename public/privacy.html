@@ -1,0 +1,124 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Privacy Policy — NewsAnalytics</title>
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=IBM+Plex+Mono:wght@400;600&family=IBM+Plex+Sans:wght@300;400;600;700&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#0a0a0b;--surface:#111114;--border:#2a2a32;--accent:#ff3b3b;--accent3:#00d4aa;--text:#e8e8ec;--muted:#6b6b7a}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg);color:var(--text);font-family:'IBM Plex Sans',sans-serif;min-height:100vh;line-height:1.7}
+header{
+  display:flex;align-items:center;justify-content:space-between;
+  padding:0 2.5rem;height:60px;
+  background:rgba(10,10,11,0.95);border-bottom:1px solid var(--border);
+  position:sticky;top:0;z-index:10;
+}
+.logo{font-family:'Bebas Neue',sans-serif;font-size:1.6rem;letter-spacing:3px;color:var(--accent);text-decoration:none}
+.logo span{color:var(--text)}
+.back-btn{font-family:'IBM Plex Mono',monospace;font-size:0.7rem;letter-spacing:1px;color:var(--muted);text-decoration:none;text-transform:uppercase;transition:color 0.2s}
+.back-btn:hover{color:var(--text)}
+.doc{max-width:760px;margin:0 auto;padding:4rem 2rem 6rem}
+.doc-title{font-family:'Bebas Neue',sans-serif;font-size:3rem;letter-spacing:3px;margin-bottom:0.5rem;color:var(--text)}
+.doc-meta{font-family:'IBM Plex Mono',monospace;font-size:0.7rem;color:var(--muted);letter-spacing:1px;margin-bottom:3rem;padding-bottom:2rem;border-bottom:1px solid var(--border)}
+h2{font-family:'Bebas Neue',sans-serif;font-size:1.4rem;letter-spacing:2px;color:var(--accent3);margin:2.5rem 0 1rem}
+p{color:#b0b0be;margin-bottom:1rem;font-size:0.92rem}
+ul{color:#b0b0be;margin:0.75rem 0 1rem 1.5rem;font-size:0.92rem}
+ul li{margin-bottom:0.4rem}
+strong{color:var(--text)}
+a{color:var(--accent3);text-decoration:none}
+a:hover{text-decoration:underline}
+.highlight-box{
+  background:var(--surface);border:1px solid var(--border);border-left:3px solid var(--accent3);
+  border-radius:8px;padding:1.25rem 1.5rem;margin:1.5rem 0;
+  font-size:0.88rem;color:#b0b0be;
+}
+footer{border-top:1px solid var(--border);padding:2rem 2.5rem;text-align:center;font-family:'IBM Plex Mono',monospace;font-size:0.65rem;color:var(--muted)}
+</style>
+</head>
+<body>
+
+<header>
+  <a class="logo" href="/">News<span>Analytics</span></a>
+  <a class="back-btn" href="/">← Back to Home</a>
+</header>
+
+<div class="doc">
+  <div class="doc-title">Privacy Policy</div>
+  <div class="doc-meta">LAST UPDATED: MARCH 8, 2026 &nbsp;·&nbsp; NEWSANALYTICS BY RS SOLUTIONS</div>
+
+  <div class="highlight-box">
+    <strong>The short version:</strong> We use your Google account only to read your own GA4 analytics data and display it to you. We do not store your analytics data on our servers, we do not sell your data, and we have no database of users. Your data is yours.
+  </div>
+
+  <h2>1. Who We Are</h2>
+  <p>NewsAnalytics ("we", "us", "our") is a real-time analytics dashboard built for news publishers, developed by <strong>RS Solutions</strong>. The service is accessible at our published domain. For questions, contact us at <a href="mailto:contact@rsolutions.in">contact@rsolutions.in</a>.</p>
+
+  <h2>2. What Data We Access</h2>
+  <p>When you sign in with Google, we request the following OAuth scopes:</p>
+  <ul>
+    <li><strong>profile</strong> — Your name and profile photo (displayed in the dashboard header)</li>
+    <li><strong>email</strong> — Your email address (used only to identify your session)</li>
+    <li><strong>https://www.googleapis.com/auth/analytics.readonly</strong> — Read-only access to your Google Analytics 4 data. We never write to, modify, or delete your GA4 data.</li>
+  </ul>
+  <p>We access only the GA4 property you explicitly select inside the app. We request the minimum necessary permissions to provide the service.</p>
+
+  <h2>3. How We Use Your Data</h2>
+  <p>Your data is used <strong>exclusively</strong> to power your personal dashboard:</p>
+  <ul>
+    <li>Your name and photo are displayed in the dashboard header so you can confirm which account is connected.</li>
+    <li>Your GA4 analytics data (active users, page views, top articles, geographic data) is fetched from Google's API in real time and displayed on your screen.</li>
+    <li>Analytics data is cached on our server for 15–300 seconds per request to reduce API quota usage. This cached data is stored in memory (not on disk) and is automatically discarded. It is scoped to your session and your property — other users cannot see it.</li>
+  </ul>
+
+  <h2>4. What We Do NOT Do</h2>
+  <ul>
+    <li>We do <strong>not</strong> store your analytics data in a database.</li>
+    <li>We do <strong>not</strong> sell, share, or transfer your data to any third party.</li>
+    <li>We do <strong>not</strong> use your data for advertising or profiling.</li>
+    <li>We do <strong>not</strong> access any GA4 property you have not explicitly chosen.</li>
+    <li>We do <strong>not</strong> retain your data after your session ends or after you log out.</li>
+  </ul>
+
+  <h2>5. Session and Cookies</h2>
+  <p>We use a single signed session cookie (<code>session</code>) to maintain your login state and remember which GA4 property you have selected. This cookie:</p>
+  <ul>
+    <li>Expires after 24 hours</li>
+    <li>Is encrypted and signed using a secret key</li>
+    <li>Is cleared immediately when you click Logout</li>
+    <li>Contains your name, email, profile photo URL, Google access token, and selected property ID</li>
+  </ul>
+  <p>We do not use any advertising cookies, tracking pixels, or third-party analytics on this service.</p>
+
+  <h2>6. Google OAuth and Google's Privacy Policy</h2>
+  <p>Sign-in is handled by Google OAuth 2.0. By connecting your Google account, you also agree to <a href="https://policies.google.com/privacy" target="_blank" rel="noopener">Google's Privacy Policy</a>. Your Google credentials (username and password) are never shared with or seen by NewsAnalytics — the authentication happens entirely on Google's servers.</p>
+  <p>You can revoke NewsAnalytics' access to your Google account at any time by visiting <a href="https://myaccount.google.com/permissions" target="_blank" rel="noopener">myaccount.google.com/permissions</a> and removing "NewsAnalytics".</p>
+
+  <h2>7. Data Security</h2>
+  <p>We take reasonable precautions to protect your data:</p>
+  <ul>
+    <li>All traffic is served over HTTPS.</li>
+    <li>Session cookies are signed and secure.</li>
+    <li>No analytics data is written to disk or a database.</li>
+    <li>Each user's cached data is isolated by session and property ID — other users cannot access your data.</li>
+  </ul>
+
+  <h2>8. Children's Privacy</h2>
+  <p>NewsAnalytics is not directed at children under the age of 13. We do not knowingly collect personal information from children. If you believe a child has provided us with personal information, please contact us and we will delete it.</p>
+
+  <h2>9. Changes to This Policy</h2>
+  <p>We may update this Privacy Policy from time to time. We will update the "Last Updated" date at the top of this page. Continued use of the service after changes constitutes acceptance of the updated policy.</p>
+
+  <h2>10. Contact Us</h2>
+  <p>If you have questions about this Privacy Policy or how we handle your data, please contact:</p>
+  <p><strong>RS Solutions</strong><br>
+  Email: <a href="mailto:contact@rsolutions.in">contact@rsolutions.in</a></p>
+</div>
+
+<footer>
+  © 2026 NewsAnalytics · RS Solutions &nbsp;·&nbsp; <a href="/">Home</a> &nbsp;·&nbsp; <a href="/terms.html">Terms of Use</a>
+</footer>
+
+</body>
+</html>

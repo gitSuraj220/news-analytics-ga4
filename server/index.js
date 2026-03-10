@@ -66,6 +66,11 @@ const PROP = (req) => `properties/${req.session.propertyId || process.env.GA4_PR
 // Cache key scoped to property so users don't see each other's data
 const CK = (req, key) => `${req.session.propertyId || 'default'}_${key}`;
 
+// ── Static page clean URLs ─────────────────────────────────
+app.get('/privacy', (req, res) => res.sendFile(path.join(__dirname, '../public/privacy.html')));
+app.get('/terms',   (req, res) => res.sendFile(path.join(__dirname, '../public/terms.html')));
+app.get('/dashboard', (req, res) => res.redirect('/dashboard.html'));
+
 // ── Auth Routes ───────────────────────────────────────────
 app.get('/auth/google', passport.authenticate('google', {
   scope: ['profile', 'email', 'https://www.googleapis.com/auth/analytics.readonly']
@@ -74,7 +79,10 @@ app.get('/auth/google/callback',
   passport.authenticate('google', { failureRedirect: '/?error=1' }),
   (req, res) => res.redirect('/dashboard.html')
 );
-app.get('/auth/logout', (req, res) => req.logout(() => res.redirect('/')));
+app.get('/auth/logout', (req, res) => req.logout(() => {
+  req.session = null; // wipe entire cookie-session so propertyId doesn't persist on next login
+  res.redirect('/');
+}));
 app.get('/auth/me', (req, res) => {
   if (!req.isAuthenticated()) return res.json({ loggedIn: false });
   res.json({
@@ -426,11 +434,11 @@ app.get('/api/ga4-dims', requireProperty, async (req, res) => {
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
-// ── API: Geo Traffic (city + country breakdown) ────────────
-app.get('/api/geo-traffic', requireProperty, async (req, res) => {
+// ── API: Banner Stats (bounce rate, unique visitors, avg engagement) ────
+app.get('/api/banner-stats', requireProperty, async (req, res) => {
   try {
     const range = req.query.range || '7days';
-    const k = CK(req, `geo_${range}`);
+    const k = CK(req, `banner_${range}`);
     if (cache.has(k)) return res.json(cache.get(k));
     const now = new Date();
     let startDate = '7daysAgo', endDate = 'today';
@@ -442,9 +450,50 @@ app.get('/api/geo-traffic', requireProperty, async (req, res) => {
       property: PROP(req),
       requestBody: {
         dateRanges: [{ startDate, endDate }],
-        metrics: [{ name: 'screenPageViews' }],
+        metrics: [
+          { name: 'bounceRate' },
+          { name: 'totalUsers' },
+          { name: 'averageSessionDuration' }
+        ]
+      }
+    });
+    const mv = r.data.rows?.[0]?.metricValues || [];
+    const dur = parseInt(mv[2]?.value || 0);
+    const d = {
+      bounceRate: parseFloat(mv[0]?.value || 0).toFixed(1) + '%',
+      uniqueVisitors: parseInt(mv[1]?.value || 0),
+      avgEngagementTime: `${Math.floor(dur / 60)}:${(dur % 60).toString().padStart(2, '0')}`
+    };
+    cache.set(k, d, 120);
+    res.json(d);
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+// ── API: Geo Traffic (city + country breakdown) ────────────
+app.get('/api/geo-traffic', requireProperty, async (req, res) => {
+  try {
+    const range = req.query.range || '7days';
+    const k = range === 'custom'
+      ? CK(req, `geo_custom_${req.query.start}_${req.query.end}`)
+      : CK(req, `geo_${range}`);
+    if (cache.has(k)) return res.json(cache.get(k));
+    const now = new Date();
+    let startDate = '7daysAgo', endDate = 'today';
+    if (range === 'today')       startDate = 'today';
+    else if (range === '7days')  startDate = '7daysAgo';
+    else if (range === '30days') startDate = '30daysAgo';
+    else if (range === 'month')  startDate = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}-01`;
+    else if (range === 'custom') {
+      startDate = req.query.start; endDate = req.query.end || 'today';
+      if (!startDate) return res.status(400).json({ error: 'start required' });
+    }
+    const r = await ga(req.user).properties.runReport({
+      property: PROP(req),
+      requestBody: {
+        dateRanges: [{ startDate, endDate }],
+        metrics: [{ name: 'totalUsers' }],
         dimensions: [{ name: 'city' }, { name: 'country' }],
-        orderBys: [{ metric: { metricName: 'screenPageViews' }, desc: true }],
+        orderBys: [{ metric: { metricName: 'totalUsers' }, desc: true }],
         limit: 250
       }
     });
@@ -453,7 +502,7 @@ app.get('/api/geo-traffic', requireProperty, async (req, res) => {
       .map(row => ({
         city: row.dimensionValues[0].value,
         country: row.dimensionValues[1].value,
-        views: parseInt(row.metricValues[0].value)
+        visitors: parseInt(row.metricValues[0].value)
       }));
     cache.set(k, rows, 300);
     res.json(rows);
