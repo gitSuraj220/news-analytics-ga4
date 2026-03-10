@@ -509,6 +509,63 @@ app.get('/api/geo-traffic', requireProperty, async (req, res) => {
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
+// ── API: Article Search by title ──────────────────────────
+app.get('/api/article-search', requireProperty, async (req, res) => {
+  try {
+    const q = (req.query.q || '').trim();
+    if (!q) return res.json([]);
+    const range = req.query.range || '7days';
+    const now = new Date();
+    let startDate = '7daysAgo', endDate = 'today';
+    if (range === 'today')       startDate = 'today';
+    else if (range === '7days')  startDate = '7daysAgo';
+    else if (range === '30days') startDate = '30daysAgo';
+    else if (range === 'month')  startDate = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}-01`;
+    else if (range === 'custom') {
+      startDate = req.query.start; endDate = req.query.end || 'today';
+      if (!startDate) return res.status(400).json({ error: 'start required' });
+    }
+    const r = await ga(req.user).properties.runReport({
+      property: PROP(req),
+      requestBody: {
+        dateRanges: [{ startDate, endDate }],
+        metrics: [
+          { name: 'screenPageViews' },
+          { name: 'totalUsers' },
+          { name: 'averageSessionDuration' },
+          { name: 'bounceRate' }
+        ],
+        dimensions: [{ name: 'pageTitle' }, { name: 'pagePath' }],
+        dimensionFilter: {
+          filter: {
+            fieldName: 'pageTitle',
+            stringFilter: { matchType: 'CONTAINS', value: q, caseSensitive: false }
+          }
+        },
+        orderBys: [{ metric: { metricName: 'screenPageViews' }, desc: true }],
+        limit: 20
+      }
+    });
+    const rows = (r.data.rows || [])
+      .filter(row => {
+        const t = row.dimensionValues[0].value;
+        return t && t !== '(not set)' && t.trim() !== '';
+      })
+      .map(row => {
+        const dur = parseInt(row.metricValues[2]?.value || 0);
+        return {
+          title: row.dimensionValues[0].value,
+          path: row.dimensionValues[1].value,
+          pageViews: parseInt(row.metricValues[0].value),
+          uniqueVisitors: parseInt(row.metricValues[1].value),
+          avgTime: `${Math.floor(dur / 60)}:${(dur % 60).toString().padStart(2, '0')}`,
+          bounceRate: parseFloat(row.metricValues[3]?.value || 0).toFixed(1) + '%'
+        };
+      });
+    res.json(rows);
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
 // Local dev: start the server directly
 // Netlify Functions: import this module, listen() is skipped
 if (require.main === module) {
