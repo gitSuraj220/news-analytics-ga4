@@ -464,17 +464,11 @@
   <!-- Article Search -->
   <div class="sec-hd" style="flex-wrap:wrap;gap:0.75rem">
     <h2>Article Search</h2>
-    <span class="tag tag-teal">By Title</span>
+    <span class="tag tag-teal">All-Time Views</span>
   </div>
   <div class="search-box">
     <div class="search-input-row">
       <input type="text" id="article-search-input" class="search-input" placeholder="Type article title or keyword…" onkeydown="if(event.key==='Enter') searchArticle()">
-      <select id="article-search-range" class="range-select" style="flex-shrink:0">
-        <option value="today">Today</option>
-        <option value="7days" selected>Last 7 Days</option>
-        <option value="30days">Last 30 Days</option>
-        <option value="month">This Month</option>
-      </select>
       <button class="search-btn" id="article-search-btn" onclick="searchArticle()">SEARCH</button>
     </div>
     <div class="search-results" id="search-results"></div>
@@ -1048,10 +1042,20 @@ async function fetchGeoTraffic() {
 }
 
 // ── Article Search ───────────────────────────────────────────
+function extractDateFromPath(path) {
+  // Matches patterns like /2024/03/15/, /2024/03/, 2024-03-15 in the URL
+  const m = path.match(/[\/\-_](\d{4})[\/\-_](\d{2})(?:[\/\-_](\d{2}))?/);
+  if (!m) return null;
+  const [, y, mo, d] = m;
+  const months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+  const mon = months[parseInt(mo, 10) - 1];
+  if (!mon) return null;
+  return d ? `${d} ${mon} ${y}` : `${mon} ${y}`;
+}
+
 async function searchArticle() {
   const q = document.getElementById('article-search-input').value.trim();
   if (!q) return;
-  const range = document.getElementById('article-search-range').value;
   const btn = document.getElementById('article-search-btn');
   const resultsEl = document.getElementById('search-results');
 
@@ -1061,36 +1065,27 @@ async function searchArticle() {
   resultsEl.innerHTML = '<div class="search-empty">⬤ FETCHING FROM GA4...</div>';
 
   try {
-    const data = await fetch(`/api/article-search?q=${encodeURIComponent(q)}&range=${range}`).then(r => r.json());
+    const data = await fetch(`/api/article-search?q=${encodeURIComponent(q)}`).then(r => r.json());
     if (data.error) throw new Error(data.error);
     if (!data.length) {
       resultsEl.innerHTML = '<div class="search-empty">No articles found matching that title.</div>';
     } else {
-      resultsEl.innerHTML = data.map(a => `
+      resultsEl.innerHTML = data.map(a => {
+        const pubDate = extractDateFromPath(a.path);
+        return `
         <div class="search-result-row">
-          <div>
+          <div style="flex:1;min-width:0">
             <div class="sr-title">${a.title}</div>
-            <div class="sr-path">${a.path}</div>
+            <div class="sr-path">${a.path}${pubDate ? ` <span style="color:var(--accent3);margin-left:8px">📅 ${pubDate}</span>` : ''}</div>
           </div>
           <div class="sr-stats">
             <div class="sr-stat">
               <div class="sr-val" style="color:var(--accent)">${(a.pageViews||0).toLocaleString('en-IN')}</div>
-              <div class="sr-lbl">Page Views</div>
-            </div>
-            <div class="sr-stat">
-              <div class="sr-val" style="color:var(--accent3)">${(a.uniqueVisitors||0).toLocaleString('en-IN')}</div>
-              <div class="sr-lbl">Visitors</div>
-            </div>
-            <div class="sr-stat">
-              <div class="sr-val">${a.avgTime}</div>
-              <div class="sr-lbl">Avg Time</div>
-            </div>
-            <div class="sr-stat">
-              <div class="sr-val" style="color:var(--accent2)">${a.bounceRate}</div>
-              <div class="sr-lbl">Bounce</div>
+              <div class="sr-lbl">Total Views</div>
             </div>
           </div>
-        </div>`).join('');
+        </div>`;
+      }).join('');
     }
   } catch (e) {
     resultsEl.innerHTML = `<div class="search-empty" style="color:var(--accent)">Error: ${e.message}</div>`;
