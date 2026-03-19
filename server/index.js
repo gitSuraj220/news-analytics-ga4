@@ -453,16 +453,16 @@ app.get('/api/banner-stats', requireProperty, async (req, res) => {
         metrics: [
           { name: 'bounceRate' },
           { name: 'totalUsers' },
-          { name: 'averageSessionDuration' }
+          { name: 'averageEngagementTime' }
         ]
       }
     });
     const mv = r.data.rows?.[0]?.metricValues || [];
-    const dur = parseInt(mv[2]?.value || 0);
+    const dur = parseFloat(mv[2]?.value || 0);
     const d = {
       bounceRate: parseFloat(mv[0]?.value || 0).toFixed(1) + '%',
       uniqueVisitors: parseInt(mv[1]?.value || 0),
-      avgEngagementTime: `${Math.floor(dur / 60)}:${(dur % 60).toString().padStart(2, '0')}`
+      avgEngagementTime: `${Math.floor(dur / 60)}:${Math.round(dur % 60).toString().padStart(2, '0')}`
     };
     cache.set(k, d, 120);
     res.json(d);
