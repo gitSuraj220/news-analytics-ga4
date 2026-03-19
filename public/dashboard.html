@@ -1234,15 +1234,17 @@ async function fetchTrafficSources(range) {
       return;
     }
 
-    // Donut chart via canvas
+    // Donut chart via canvas — defer to next frame so parent has layout
+    await new Promise(r => requestAnimationFrame(r));
     const canvas = document.getElementById('sources-donut');
     const ctx = canvas.getContext('2d');
     const dpr = window.devicePixelRatio || 1;
-    const size = Math.min(canvas.parentElement.clientWidth - 32, 220);
+    const rawW = canvas.parentElement.clientWidth - 64;
+    const size = Math.min(Math.max(rawW, 160), 220);
     canvas.width = size * dpr; canvas.height = size * dpr;
     canvas.style.width = size + 'px'; canvas.style.height = size + 'px';
     ctx.scale(dpr, dpr);
-    const cx = size / 2, cy = size / 2, outerR = size / 2 - 4, innerR = size / 2 - 28;
+    const cx = size / 2, cy = size / 2, outerR = size / 2 - 4, innerR = size / 2 - 32;
     const total = data.reduce((s, d) => s + d.sessions, 0) || 1;
     let startAngle = -Math.PI / 2;
     ctx.clearRect(0, 0, size, size);
@@ -1256,19 +1258,19 @@ async function fetchTrafficSources(range) {
       ctx.fill();
       startAngle += slice;
     });
-    // Donut hole
+    // Donut hole — use hardcoded dark surface color
     ctx.beginPath();
     ctx.arc(cx, cy, innerR, 0, 2 * Math.PI);
-    ctx.fillStyle = getComputedStyle(document.documentElement).getPropertyValue('--surface').trim() || '#111114';
+    ctx.fillStyle = '#111114';
     ctx.fill();
     // Center label
     ctx.fillStyle = '#e8e8ec';
-    ctx.font = `600 ${Math.round(size * 0.08)}px IBM Plex Mono, monospace`;
+    ctx.font = `600 ${Math.round(size * 0.09)}px IBM Plex Mono, monospace`;
     ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-    ctx.fillText(total.toLocaleString('en-IN'), cx, cy - 8);
-    ctx.font = `${Math.round(size * 0.055)}px IBM Plex Sans, sans-serif`;
+    ctx.fillText(total.toLocaleString('en-IN'), cx, cy - 9);
+    ctx.font = `${Math.round(size * 0.06)}px IBM Plex Sans, sans-serif`;
     ctx.fillStyle = '#6b6b7a';
-    ctx.fillText('sessions', cx, cy + 10);
+    ctx.fillText('sessions', cx, cy + 11);
 
     // Source list
     document.getElementById('sources-list').innerHTML = data.map((d, i) => `
@@ -1311,14 +1313,16 @@ async function fetchPublishingTime(range) {
         <div class="best-time-badge">📅 Best Day: ${bestDay.dayName} (${bestDay.pageViews.toLocaleString('en-IN')} views)</div>
       </div>`;
 
-    // Hour bars
+    // Hour bars — use pixel heights (90px container) to avoid flex conflict
+    const BAR_H = 86;
     const showTicks = [0, 3, 6, 9, 12, 15, 18, 21];
     document.getElementById('hour-bars').innerHTML = hours.map(h => {
-      const pct = (h.pageViews / maxHourPV) * 100;
+      const pct = h.pageViews / maxHourPV;
+      const px = Math.max(Math.round(pct * BAR_H), 2);
       const isBest = h.hour === bestHour.hour;
-      const color = isBest ? '#ff3b3b' : (pct > 60 ? '#ffb800' : '#2a2a32');
-      return `<div class="hour-bar-col" title="${fmtHour(h.hour)}: ${h.pageViews.toLocaleString('en-IN')} views">
-        <div class="hour-bar" style="height:${Math.max(pct,2)}%;background:${color};flex:1;align-self:flex-end;width:100%"></div>
+      const color = isBest ? '#ff3b3b' : (pct > 0.6 ? '#ffb800' : '#3a3a44');
+      return `<div class="hour-bar-col" style="height:${BAR_H}px;display:flex;flex-direction:column;justify-content:flex-end;align-items:stretch;flex:1" title="${fmtHour(h.hour)}: ${h.pageViews.toLocaleString('en-IN')} views">
+        <div style="height:${px}px;background:${color};border-radius:2px 2px 0 0;width:100%;transition:height 0.4s"></div>
       </div>`;
     }).join('');
 

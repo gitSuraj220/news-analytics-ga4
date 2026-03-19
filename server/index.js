@@ -659,7 +659,7 @@ app.get('/api/content-gap', requireProperty, async (req, res) => {
     }
 
     const categories = Object.entries(catMap)
-      .filter(([, v]) => v.articleCount >= 2)
+      .filter(([, v]) => v.articleCount >= 1)
       .map(([slug, v]) => {
         const avgBounce = v.articleCount > 0 ? v.bounceRateSum / v.articleCount : 0;
         const avgDuration = v.articleCount > 0 ? v.durationSum / v.articleCount : 0;
