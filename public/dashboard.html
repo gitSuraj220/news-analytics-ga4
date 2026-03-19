@@ -325,6 +325,64 @@
     .sr-val { font-size: 0.75rem; }
   }
 
+  /* ── Traffic Sources ── */
+  .sources-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem; margin-bottom: 2.5rem; }
+  .sources-chart-wrap { background: var(--surface); border: 1px solid var(--border); border-radius: 16px; padding: 1.5rem 2rem; }
+  .sources-list-wrap { background: var(--surface); border: 1px solid var(--border); border-radius: 16px; padding: 1.5rem 2rem; }
+  .source-row { display: flex; align-items: center; gap: 1rem; padding: 0.7rem 0; border-bottom: 1px solid rgba(42,42,50,0.5); }
+  .source-row:last-child { border-bottom: none; }
+  .source-dot { width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; }
+  .source-name { flex: 1; font-size: 0.85rem; font-weight: 600; }
+  .source-bar-wrap { width: 100px; height: 4px; background: var(--border); border-radius: 2px; overflow: hidden; }
+  .source-bar { height: 100%; border-radius: 2px; }
+  .source-pct { font-family: 'IBM Plex Mono', monospace; font-size: 0.78rem; min-width: 42px; text-align: right; }
+  .source-sessions { font-family: 'IBM Plex Mono', monospace; font-size: 0.7rem; color: var(--muted); min-width: 60px; text-align: right; }
+  canvas#sources-donut { max-height: 220px; }
+  @media (max-width: 700px) {
+    .sources-grid { grid-template-columns: 1fr; }
+    canvas#sources-donut { max-height: 180px; }
+  }
+
+  /* ── Best Publishing Time ── */
+  .pub-time-wrap { background: var(--surface); border: 1px solid var(--border); border-radius: 16px; padding: 1.5rem 2rem; margin-bottom: 2.5rem; }
+  .pub-time-inner { display: grid; grid-template-columns: 1fr 1fr; gap: 2rem; }
+  .pub-sub-label { font-family: 'IBM Plex Mono', monospace; font-size: 0.65rem; letter-spacing: 2px; color: var(--muted); text-transform: uppercase; margin-bottom: 1rem; }
+  .hour-bars { display: flex; align-items: flex-end; gap: 3px; height: 90px; }
+  .hour-bar-col { display: flex; flex-direction: column; align-items: center; gap: 4px; flex: 1; }
+  .hour-bar { width: 100%; border-radius: 3px 3px 0 0; transition: opacity 0.2s; cursor: default; min-height: 2px; }
+  .hour-bar:hover { opacity: 0.8; }
+  .hour-tick { font-family: 'IBM Plex Mono', monospace; font-size: 0.5rem; color: var(--muted); }
+  .day-bars { display: flex; flex-direction: column; gap: 6px; }
+  .day-row { display: flex; align-items: center; gap: 10px; }
+  .day-label { font-family: 'IBM Plex Mono', monospace; font-size: 0.65rem; color: var(--muted); width: 32px; flex-shrink: 0; }
+  .day-bar-outer { flex: 1; height: 18px; background: var(--surface2); border-radius: 4px; overflow: hidden; }
+  .day-bar-inner { height: 100%; border-radius: 4px; transition: width 0.5s; }
+  .day-views { font-family: 'IBM Plex Mono', monospace; font-size: 0.65rem; color: var(--muted); width: 60px; text-align: right; flex-shrink: 0; }
+  .best-time-badge { display: inline-flex; align-items: center; gap: 8px; background: rgba(0,212,170,0.1); border: 1px solid rgba(0,212,170,0.3); border-radius: 8px; padding: 6px 14px; font-family: 'IBM Plex Mono', monospace; font-size: 0.7rem; color: var(--accent3); margin-bottom: 1rem; }
+  @media (max-width: 700px) {
+    .pub-time-inner { grid-template-columns: 1fr; }
+    .hour-bars { gap: 2px; height: 70px; }
+    .hour-tick { font-size: 0.42rem; }
+  }
+
+  /* ── Content Gap Analysis ── */
+  .gap-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1rem; margin-bottom: 2.5rem; }
+  .gap-card { background: var(--surface); border: 1px solid var(--border); border-radius: 14px; padding: 1.25rem 1.5rem; display: flex; flex-direction: column; gap: 0.6rem; transition: border-color 0.2s; }
+  .gap-card:hover { border-color: var(--accent3); }
+  .gap-card-header { display: flex; align-items: center; justify-content: space-between; }
+  .gap-cat-name { font-family: 'Bebas Neue', sans-serif; font-size: 1.2rem; letter-spacing: 2px; }
+  .gap-score-badge { font-family: 'IBM Plex Mono', monospace; font-size: 0.6rem; padding: 3px 8px; border-radius: 100px; letter-spacing: 1px; font-weight: 600; }
+  .gap-score-low { background: rgba(0,212,170,0.15); color: var(--accent3); border: 1px solid rgba(0,212,170,0.3); }
+  .gap-score-mid { background: rgba(255,184,0,0.15); color: var(--accent2); border: 1px solid rgba(255,184,0,0.3); }
+  .gap-score-high { background: rgba(255,59,59,0.15); color: var(--accent); border: 1px solid rgba(255,59,59,0.3); }
+  .gap-metrics { display: grid; grid-template-columns: 1fr 1fr; gap: 0.5rem 1rem; }
+  .gap-metric { display: flex; flex-direction: column; gap: 2px; }
+  .gap-metric-val { font-family: 'IBM Plex Mono', monospace; font-size: 0.82rem; font-weight: 600; }
+  .gap-metric-lbl { font-family: 'IBM Plex Mono', monospace; font-size: 0.58rem; color: var(--muted); letter-spacing: 1px; text-transform: uppercase; }
+  .gap-insight { font-size: 0.72rem; color: var(--muted); padding-top: 0.4rem; border-top: 1px solid var(--border); line-height: 1.5; }
+  @media (max-width: 900px) { .gap-grid { grid-template-columns: 1fr 1fr; } }
+  @media (max-width: 600px) { .gap-grid { grid-template-columns: 1fr; } .gap-card { padding: 1rem; } }
+
   /* Geo Map */
   .leaflet-container { background: #0d0d10 !important; font-family: 'IBM Plex Mono', monospace; }
   .leaflet-control-zoom a { background: var(--surface2) !important; color: var(--text) !important; border-color: var(--border) !important; }
@@ -464,17 +522,11 @@
   <!-- Article Search -->
   <div class="sec-hd" style="flex-wrap:wrap;gap:0.75rem">
     <h2>Article Search</h2>
-    <span class="tag tag-teal">By Title</span>
+    <span class="tag tag-teal">All-Time Views</span>
   </div>
   <div class="search-box">
     <div class="search-input-row">
       <input type="text" id="article-search-input" class="search-input" placeholder="Type article title or keyword…" onkeydown="if(event.key==='Enter') searchArticle()">
-      <select id="article-search-range" class="range-select" style="flex-shrink:0">
-        <option value="today">Today</option>
-        <option value="7days" selected>Last 7 Days</option>
-        <option value="30days">Last 30 Days</option>
-        <option value="month">This Month</option>
-      </select>
       <button class="search-btn" id="article-search-btn" onclick="searchArticle()">SEARCH</button>
     </div>
     <div class="search-results" id="search-results"></div>
@@ -500,6 +552,72 @@
   </div>
   <div class="cat-grid" id="cat-grid">
     <div style="padding:20px;text-align:center;color:var(--muted);font-size:0.75rem;font-family:monospace;grid-column:1/-1">Loading categories...</div>
+  </div>
+
+  <!-- Traffic Source Breakdown -->
+  <div class="sec-hd" style="flex-wrap:wrap;gap:0.75rem">
+    <h2>Traffic Sources</h2>
+    <span class="tag tag-teal">Where Readers Come From</span>
+    <select id="src-range-select" class="range-select" onchange="fetchTrafficSources(this.value)">
+      <option value="7days" selected>Last 7 Days</option>
+      <option value="today">Today</option>
+      <option value="30days">Last 30 Days</option>
+      <option value="month">This Month</option>
+    </select>
+    <span class="last-updated" id="src-updated"></span>
+  </div>
+  <div class="sources-grid">
+    <div class="sources-chart-wrap">
+      <div class="pub-sub-label" style="margin-bottom:1.25rem">Session Share</div>
+      <canvas id="sources-donut"></canvas>
+    </div>
+    <div class="sources-list-wrap">
+      <div class="pub-sub-label" style="margin-bottom:1.25rem">Channel Breakdown</div>
+      <div id="sources-list"><div style="color:var(--muted);font-family:monospace;font-size:0.75rem;padding:1rem 0;text-align:center">Loading...</div></div>
+    </div>
+  </div>
+
+  <!-- Best Publishing Time -->
+  <div class="sec-hd" style="flex-wrap:wrap;gap:0.75rem">
+    <h2>Best Publishing Time</h2>
+    <span class="tag tag-yellow">Peak Traffic Hours</span>
+    <select id="pubtime-range-select" class="range-select" onchange="fetchPublishingTime(this.value)">
+      <option value="30days" selected>Last 30 Days</option>
+      <option value="7days">Last 7 Days</option>
+      <option value="90days">Last 90 Days</option>
+      <option value="month">This Month</option>
+    </select>
+    <span class="last-updated" id="pubtime-updated"></span>
+  </div>
+  <div class="pub-time-wrap">
+    <div id="best-time-summary" style="margin-bottom:1.25rem"></div>
+    <div class="pub-time-inner">
+      <div>
+        <div class="pub-sub-label">Traffic by Hour of Day</div>
+        <div class="hour-bars" id="hour-bars"></div>
+        <div class="hour-bars" id="hour-ticks" style="height:auto;align-items:flex-start;margin-top:4px"></div>
+      </div>
+      <div>
+        <div class="pub-sub-label">Traffic by Day of Week</div>
+        <div class="day-bars" id="day-bars"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Content Gap Analysis -->
+  <div class="sec-hd" style="flex-wrap:wrap;gap:0.75rem">
+    <h2>Content Gap Analysis</h2>
+    <span class="tag tag-red">Improvement Opportunities</span>
+    <select id="gap-range-select" class="range-select" onchange="fetchContentGap(this.value)">
+      <option value="30days" selected>Last 30 Days</option>
+      <option value="7days">Last 7 Days</option>
+      <option value="90days">Last 90 Days</option>
+      <option value="month">This Month</option>
+    </select>
+    <span class="last-updated" id="gap-updated"></span>
+  </div>
+  <div class="gap-grid" id="gap-grid">
+    <div style="grid-column:1/-1;padding:2rem;text-align:center;color:var(--muted);font-family:monospace;font-size:0.75rem">Loading content analysis...</div>
   </div>
 
   <!-- Visitor Geography Map -->
@@ -1048,10 +1166,20 @@ async function fetchGeoTraffic() {
 }
 
 // ── Article Search ───────────────────────────────────────────
+function extractDateFromPath(path) {
+  // Matches patterns like /2024/03/15/, /2024/03/, 2024-03-15 in the URL
+  const m = path.match(/[\/\-_](\d{4})[\/\-_](\d{2})(?:[\/\-_](\d{2}))?/);
+  if (!m) return null;
+  const [, y, mo, d] = m;
+  const months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+  const mon = months[parseInt(mo, 10) - 1];
+  if (!mon) return null;
+  return d ? `${d} ${mon} ${y}` : `${mon} ${y}`;
+}
+
 async function searchArticle() {
   const q = document.getElementById('article-search-input').value.trim();
   if (!q) return;
-  const range = document.getElementById('article-search-range').value;
   const btn = document.getElementById('article-search-btn');
   const resultsEl = document.getElementById('search-results');
 
@@ -1061,36 +1189,27 @@ async function searchArticle() {
   resultsEl.innerHTML = '<div class="search-empty">⬤ FETCHING FROM GA4...</div>';
 
   try {
-    const data = await fetch(`/api/article-search?q=${encodeURIComponent(q)}&range=${range}`).then(r => r.json());
+    const data = await fetch(`/api/article-search?q=${encodeURIComponent(q)}`).then(r => r.json());
     if (data.error) throw new Error(data.error);
     if (!data.length) {
       resultsEl.innerHTML = '<div class="search-empty">No articles found matching that title.</div>';
     } else {
-      resultsEl.innerHTML = data.map(a => `
+      resultsEl.innerHTML = data.map(a => {
+        const pubDate = extractDateFromPath(a.path);
+        return `
         <div class="search-result-row">
-          <div>
+          <div style="flex:1;min-width:0">
             <div class="sr-title">${a.title}</div>
-            <div class="sr-path">${a.path}</div>
+            <div class="sr-path">${a.path}${pubDate ? ` <span style="color:var(--accent3);margin-left:8px">📅 ${pubDate}</span>` : ''}</div>
           </div>
           <div class="sr-stats">
             <div class="sr-stat">
               <div class="sr-val" style="color:var(--accent)">${(a.pageViews||0).toLocaleString('en-IN')}</div>
-              <div class="sr-lbl">Page Views</div>
-            </div>
-            <div class="sr-stat">
-              <div class="sr-val" style="color:var(--accent3)">${(a.uniqueVisitors||0).toLocaleString('en-IN')}</div>
-              <div class="sr-lbl">Visitors</div>
-            </div>
-            <div class="sr-stat">
-              <div class="sr-val">${a.avgTime}</div>
-              <div class="sr-lbl">Avg Time</div>
-            </div>
-            <div class="sr-stat">
-              <div class="sr-val" style="color:var(--accent2)">${a.bounceRate}</div>
-              <div class="sr-lbl">Bounce</div>
+              <div class="sr-lbl">Total Views</div>
             </div>
           </div>
-        </div>`).join('');
+        </div>`;
+      }).join('');
     }
   } catch (e) {
     resultsEl.innerHTML = `<div class="search-empty" style="color:var(--accent)">Error: ${e.message}</div>`;
@@ -1098,6 +1217,200 @@ async function searchArticle() {
   } finally {
     btn.disabled = false;
     btn.textContent = 'SEARCH';
+  }
+}
+
+// ── Traffic Sources ──────────────────────────────────────────
+const SRC_COLORS = ['#ff3b3b','#00d4aa','#ffb800','#7c9eff','#c084fc','#f97316','#34d399','#fb7185'];
+let srcDonutChart = null;
+
+async function fetchTrafficSources(range) {
+  if (!range) range = document.getElementById('src-range-select').value;
+  try {
+    const data = await fetch(`/api/traffic-sources?range=${range}`).then(r => r.json());
+    if (data.error) throw new Error(data.error);
+    if (!data.length) {
+      document.getElementById('sources-list').innerHTML = '<div style="color:var(--muted);font-family:monospace;font-size:0.75rem;padding:1rem 0;text-align:center">No data</div>';
+      return;
+    }
+
+    // Donut chart via canvas — defer to next frame so parent has layout
+    await new Promise(r => requestAnimationFrame(r));
+    const canvas = document.getElementById('sources-donut');
+    const ctx = canvas.getContext('2d');
+    const dpr = window.devicePixelRatio || 1;
+    const rawW = canvas.parentElement.clientWidth - 64;
+    const size = Math.min(Math.max(rawW, 160), 220);
+    canvas.width = size * dpr; canvas.height = size * dpr;
+    canvas.style.width = size + 'px'; canvas.style.height = size + 'px';
+    ctx.scale(dpr, dpr);
+    const cx = size / 2, cy = size / 2, outerR = size / 2 - 4, innerR = size / 2 - 32;
+    const total = data.reduce((s, d) => s + d.sessions, 0) || 1;
+    let startAngle = -Math.PI / 2;
+    ctx.clearRect(0, 0, size, size);
+    data.forEach((d, i) => {
+      const slice = (d.sessions / total) * 2 * Math.PI;
+      ctx.beginPath();
+      ctx.moveTo(cx, cy);
+      ctx.arc(cx, cy, outerR, startAngle, startAngle + slice);
+      ctx.closePath();
+      ctx.fillStyle = SRC_COLORS[i % SRC_COLORS.length];
+      ctx.fill();
+      startAngle += slice;
+    });
+    // Donut hole — use hardcoded dark surface color
+    ctx.beginPath();
+    ctx.arc(cx, cy, innerR, 0, 2 * Math.PI);
+    ctx.fillStyle = '#111114';
+    ctx.fill();
+    // Center label
+    ctx.fillStyle = '#e8e8ec';
+    ctx.font = `600 ${Math.round(size * 0.09)}px IBM Plex Mono, monospace`;
+    ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    ctx.fillText(total.toLocaleString('en-IN'), cx, cy - 9);
+    ctx.font = `${Math.round(size * 0.06)}px IBM Plex Sans, sans-serif`;
+    ctx.fillStyle = '#6b6b7a';
+    ctx.fillText('sessions', cx, cy + 11);
+
+    // Source list
+    document.getElementById('sources-list').innerHTML = data.map((d, i) => `
+      <div class="source-row">
+        <div class="source-dot" style="background:${SRC_COLORS[i % SRC_COLORS.length]}"></div>
+        <div class="source-name">${d.channel}</div>
+        <div class="source-bar-wrap">
+          <div class="source-bar" style="width:${d.pct}%;background:${SRC_COLORS[i % SRC_COLORS.length]}"></div>
+        </div>
+        <div class="source-pct" style="color:${SRC_COLORS[i % SRC_COLORS.length]}">${d.pct}%</div>
+        <div class="source-sessions">${d.sessions.toLocaleString('en-IN')} sess.</div>
+      </div>`).join('');
+
+    document.getElementById('src-updated').textContent = 'Updated ' + timeLabel();
+  } catch (e) { showError(e.message); }
+}
+
+// ── Best Publishing Time ─────────────────────────────────────
+async function fetchPublishingTime(range) {
+  if (!range) range = document.getElementById('pubtime-range-select').value;
+  try {
+    const data = await fetch(`/api/publishing-time?range=${range}`).then(r => r.json());
+    if (data.error) throw new Error(data.error);
+
+    const { hours, days } = data;
+    const maxHourPV = Math.max(...hours.map(h => h.pageViews), 1);
+    const maxDayPV = Math.max(...days.map(d => d.pageViews), 1);
+    const bestHour = hours.reduce((best, h) => h.pageViews > best.pageViews ? h : best, hours[0]);
+    const bestDay = days.reduce((best, d) => d.pageViews > best.pageViews ? d : best, days[0]);
+
+    function fmtHour(h) {
+      const suffix = h >= 12 ? 'PM' : 'AM';
+      const h12 = h % 12 || 12;
+      return `${h12}${suffix}`;
+    }
+
+    document.getElementById('best-time-summary').innerHTML = `
+      <div style="display:flex;gap:1rem;flex-wrap:wrap">
+        <div class="best-time-badge">⏰ Best Hour: ${fmtHour(bestHour.hour)} (${bestHour.pageViews.toLocaleString('en-IN')} views)</div>
+        <div class="best-time-badge">📅 Best Day: ${bestDay.dayName} (${bestDay.pageViews.toLocaleString('en-IN')} views)</div>
+      </div>`;
+
+    // Hour bars — use pixel heights (90px container) to avoid flex conflict
+    const BAR_H = 86;
+    const showTicks = [0, 3, 6, 9, 12, 15, 18, 21];
+    document.getElementById('hour-bars').innerHTML = hours.map(h => {
+      const pct = h.pageViews / maxHourPV;
+      const px = Math.max(Math.round(pct * BAR_H), 2);
+      const isBest = h.hour === bestHour.hour;
+      const color = isBest ? '#ff3b3b' : (pct > 0.6 ? '#ffb800' : '#3a3a44');
+      return `<div class="hour-bar-col" style="height:${BAR_H}px;display:flex;flex-direction:column;justify-content:flex-end;align-items:stretch;flex:1" title="${fmtHour(h.hour)}: ${h.pageViews.toLocaleString('en-IN')} views">
+        <div style="height:${px}px;background:${color};border-radius:2px 2px 0 0;width:100%;transition:height 0.4s"></div>
+      </div>`;
+    }).join('');
+
+    document.getElementById('hour-ticks').innerHTML = hours.map(h => `
+      <div class="hour-bar-col">
+        <div class="hour-tick">${showTicks.includes(h.hour) ? fmtHour(h.hour) : ''}</div>
+      </div>`).join('');
+
+    // Day bars
+    const dayShort = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+    document.getElementById('day-bars').innerHTML = days.map(d => {
+      const pct = (d.pageViews / maxDayPV) * 100;
+      const isBest = d.day === bestDay.day;
+      const color = isBest ? '#ff3b3b' : (pct > 70 ? '#ffb800' : '#00d4aa');
+      return `<div class="day-row">
+        <div class="day-label">${dayShort[d.day]}</div>
+        <div class="day-bar-outer">
+          <div class="day-bar-inner" style="width:${pct}%;background:${color}"></div>
+        </div>
+        <div class="day-views">${d.pageViews.toLocaleString('en-IN')}</div>
+      </div>`;
+    }).join('');
+
+    document.getElementById('pubtime-updated').textContent = 'Updated ' + timeLabel();
+  } catch (e) { showError(e.message); }
+}
+
+// ── Content Gap Analysis ─────────────────────────────────────
+async function fetchContentGap(range) {
+  if (!range) range = document.getElementById('gap-range-select').value;
+  const grid = document.getElementById('gap-grid');
+  try {
+    const data = await fetch(`/api/content-gap?range=${range}`).then(r => r.json());
+    if (data.error) throw new Error(data.error);
+    if (!data.length) {
+      grid.innerHTML = '<div style="grid-column:1/-1;padding:2rem;text-align:center;color:var(--muted);font-family:monospace;font-size:0.75rem">No category data available</div>';
+      return;
+    }
+
+    function fmtDur(sec) {
+      const m = Math.floor(sec / 60), s = sec % 60;
+      return `${m}:${String(s).padStart(2,'0')}`;
+    }
+
+    function gapInsight(d) {
+      const issues = [];
+      if (d.avgBounceRate > 70) issues.push('high bounce rate');
+      if (d.avgDuration < 60) issues.push('low read time');
+      if (d.viewsPerArticle < 200) issues.push('low views/article');
+      if (!issues.length) return '✅ Performing well';
+      return `⚠ ${issues.join(', ')} — needs attention`;
+    }
+
+    grid.innerHTML = data.map(d => {
+      const scoreClass = d.gapScore < 35 ? 'gap-score-low' : d.gapScore < 65 ? 'gap-score-mid' : 'gap-score-high';
+      const scoreLabel = d.gapScore < 35 ? 'HEALTHY' : d.gapScore < 65 ? 'AVERAGE' : 'NEEDS WORK';
+      const nameColor = d.gapScore < 35 ? 'var(--accent3)' : d.gapScore < 65 ? 'var(--accent2)' : 'var(--accent)';
+      return `<div class="gap-card">
+        <div class="gap-card-header">
+          <div class="gap-cat-name" style="color:${nameColor}">${d.displayName}</div>
+          <div class="gap-score-badge ${scoreClass}">${scoreLabel}</div>
+        </div>
+        <div class="gap-metrics">
+          <div class="gap-metric">
+            <div class="gap-metric-val" style="color:var(--text)">${d.pageViews.toLocaleString('en-IN')}</div>
+            <div class="gap-metric-lbl">Total Views</div>
+          </div>
+          <div class="gap-metric">
+            <div class="gap-metric-val" style="color:var(--accent2)">${d.viewsPerArticle.toLocaleString('en-IN')}</div>
+            <div class="gap-metric-lbl">Views/Article</div>
+          </div>
+          <div class="gap-metric">
+            <div class="gap-metric-val" style="color:${d.avgBounceRate > 70 ? 'var(--accent)' : 'var(--accent3)'}">${d.avgBounceRate}%</div>
+            <div class="gap-metric-lbl">Avg Bounce</div>
+          </div>
+          <div class="gap-metric">
+            <div class="gap-metric-val" style="color:${d.avgDuration < 60 ? 'var(--accent)' : 'var(--accent3)'}">${fmtDur(d.avgDuration)}</div>
+            <div class="gap-metric-lbl">Avg Read Time</div>
+          </div>
+        </div>
+        <div class="gap-insight">${gapInsight(d)} · ${d.articleCount} articles tracked</div>
+      </div>`;
+    }).join('');
+
+    document.getElementById('gap-updated').textContent = 'Updated ' + timeLabel();
+  } catch (e) {
+    showError(e.message);
+    grid.innerHTML = `<div style="grid-column:1/-1;padding:2rem;text-align:center;color:var(--accent);font-family:monospace;font-size:0.75rem">Error: ${e.message}</div>`;
   }
 }
 
@@ -1135,12 +1448,25 @@ function startDashboard() {
   document.getElementById('banner-unique').textContent = '—';
   document.getElementById('banner-avg').textContent = '—';
 
+  // Reset new feature selectors
+  document.getElementById('src-range-select').value = '7days';
+  document.getElementById('pubtime-range-select').value = '30days';
+  document.getElementById('gap-range-select').value = '30days';
+  document.getElementById('gap-grid').innerHTML = '<div style="grid-column:1/-1;padding:2rem;text-align:center;color:var(--muted);font-family:monospace;font-size:0.75rem">Loading content analysis...</div>';
+  document.getElementById('sources-list').innerHTML = '<div style="color:var(--muted);font-family:monospace;font-size:0.75rem;padding:1rem 0;text-align:center">Loading...</div>';
+  document.getElementById('hour-bars').innerHTML = '';
+  document.getElementById('day-bars').innerHTML = '';
+  document.getElementById('best-time-summary').innerHTML = '';
+
   // Initial load
   fetchRealtime();
   fetchBannerStats('7days');
   fetchTopNews();
   fetchCategories();
   fetchGeoTraffic();
+  fetchTrafficSources('7days');
+  fetchPublishingTime('30days');
+  fetchContentGap('30days');
 
   // Polling
   pollIntervals.push(setInterval(fetchRealtime, 15000));
@@ -1149,6 +1475,9 @@ function startDashboard() {
   pollIntervals.push(topNewsInterval);
   pollIntervals.push(setInterval(fetchCategories, 5 * 60000));
   pollIntervals.push(setInterval(fetchGeoTraffic, 5 * 60000));
+  pollIntervals.push(setInterval(() => fetchTrafficSources(), 5 * 60000));
+  pollIntervals.push(setInterval(() => fetchPublishingTime(), 10 * 60000));
+  pollIntervals.push(setInterval(() => fetchContentGap(), 10 * 60000));
 }
 </script>
 </body>

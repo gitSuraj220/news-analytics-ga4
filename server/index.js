@@ -509,32 +509,193 @@ app.get('/api/geo-traffic', requireProperty, async (req, res) => {
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
-// ── API: Article Search by title ──────────────────────────
-app.get('/api/article-search', requireProperty, async (req, res) => {
+// ── API: Traffic Source Breakdown ─────────────────────────
+app.get('/api/traffic-sources', requireProperty, async (req, res) => {
   try {
-    const q = (req.query.q || '').trim();
-    if (!q) return res.json([]);
     const range = req.query.range || '7days';
+    const k = CK(req, `traffic_src_${range}`);
+    if (cache.has(k)) return res.json(cache.get(k));
     const now = new Date();
     let startDate = '7daysAgo', endDate = 'today';
     if (range === 'today')       startDate = 'today';
     else if (range === '7days')  startDate = '7daysAgo';
     else if (range === '30days') startDate = '30daysAgo';
     else if (range === 'month')  startDate = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}-01`;
-    else if (range === 'custom') {
-      startDate = req.query.start; endDate = req.query.end || 'today';
-      if (!startDate) return res.status(400).json({ error: 'start required' });
-    }
+
+    const r = await ga(req.user).properties.runReport({
+      property: PROP(req),
+      requestBody: {
+        dateRanges: [{ startDate, endDate }],
+        metrics: [{ name: 'sessions' }, { name: 'screenPageViews' }, { name: 'totalUsers' }],
+        dimensions: [{ name: 'sessionDefaultChannelGroup' }],
+        orderBys: [{ metric: { metricName: 'sessions' }, desc: true }]
+      }
+    });
+
+    const rows = (r.data.rows || [])
+      .filter(row => {
+        const ch = row.dimensionValues[0].value;
+        return ch && ch !== '(not set)' && ch !== '(other)';
+      })
+      .map(row => ({
+        channel: row.dimensionValues[0].value,
+        sessions: parseInt(row.metricValues[0].value || 0),
+        pageViews: parseInt(row.metricValues[1].value || 0),
+        users: parseInt(row.metricValues[2].value || 0)
+      }));
+
+    const totalSessions = rows.reduce((s, r) => s + r.sessions, 0) || 1;
+    const result = rows.map(r => ({ ...r, pct: parseFloat(((r.sessions / totalSessions) * 100).toFixed(1)) }));
+    cache.set(k, result, 300);
+    res.json(result);
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+// ── API: Best Publishing Time (hour + day heatmap) ─────────
+app.get('/api/publishing-time', requireProperty, async (req, res) => {
+  try {
+    const range = req.query.range || '30days';
+    const k = CK(req, `pub_time_${range}`);
+    if (cache.has(k)) return res.json(cache.get(k));
+    const now = new Date();
+    let startDate = '30daysAgo', endDate = 'today';
+    if (range === '7days')   startDate = '7daysAgo';
+    else if (range === '30days') startDate = '30daysAgo';
+    else if (range === '90days') startDate = '90daysAgo';
+    else if (range === 'month')  startDate = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}-01`;
+
+    const [byHour, byDay] = await Promise.all([
+      ga(req.user).properties.runReport({
+        property: PROP(req),
+        requestBody: {
+          dateRanges: [{ startDate, endDate }],
+          metrics: [{ name: 'screenPageViews' }, { name: 'sessions' }],
+          dimensions: [{ name: 'hour' }],
+          orderBys: [{ dimension: { dimensionName: 'hour' } }]
+        }
+      }),
+      ga(req.user).properties.runReport({
+        property: PROP(req),
+        requestBody: {
+          dateRanges: [{ startDate, endDate }],
+          metrics: [{ name: 'screenPageViews' }, { name: 'sessions' }],
+          dimensions: [{ name: 'dayOfWeek' }],
+          orderBys: [{ dimension: { dimensionName: 'dayOfWeek' } }]
+        }
+      })
+    ]);
+
+    // hour: 0-23 array
+    const hours = Array(24).fill(null).map((_, i) => ({ hour: i, pageViews: 0, sessions: 0 }));
+    (byHour.data.rows || []).forEach(row => {
+      const h = parseInt(row.dimensionValues[0].value);
+      if (h >= 0 && h < 24) {
+        hours[h].pageViews = parseInt(row.metricValues[0].value || 0);
+        hours[h].sessions = parseInt(row.metricValues[1].value || 0);
+      }
+    });
+
+    // dayOfWeek: GA4 returns 0=Sun,1=Mon,...,6=Sat
+    const days = Array(7).fill(null).map((_, i) => ({ day: i, pageViews: 0, sessions: 0 }));
+    const dayNames = ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
+    (byDay.data.rows || []).forEach(row => {
+      const d = parseInt(row.dimensionValues[0].value);
+      if (d >= 0 && d < 7) {
+        days[d].pageViews = parseInt(row.metricValues[0].value || 0);
+        days[d].sessions = parseInt(row.metricValues[1].value || 0);
+        days[d].dayName = dayNames[d];
+      }
+    });
+    days.forEach(d => { if (!d.dayName) d.dayName = dayNames[d.day]; });
+
+    const result = { hours, days };
+    cache.set(k, result, 600);
+    res.json(result);
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+// ── API: Content Gap Analysis ──────────────────────────────
+app.get('/api/content-gap', requireProperty, async (req, res) => {
+  try {
+    const range = req.query.range || '30days';
+    const k = CK(req, `content_gap_${range}`);
+    if (cache.has(k)) return res.json(cache.get(k));
+    const now = new Date();
+    let startDate = '30daysAgo', endDate = 'today';
+    if (range === '7days')   startDate = '7daysAgo';
+    else if (range === '30days') startDate = '30daysAgo';
+    else if (range === '90days') startDate = '90daysAgo';
+    else if (range === 'month')  startDate = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}-01`;
+
     const r = await ga(req.user).properties.runReport({
       property: PROP(req),
       requestBody: {
         dateRanges: [{ startDate, endDate }],
         metrics: [
           { name: 'screenPageViews' },
-          { name: 'totalUsers' },
-          { name: 'averageSessionDuration' },
-          { name: 'bounceRate' }
+          { name: 'sessions' },
+          { name: 'bounceRate' },
+          { name: 'averageSessionDuration' }
         ],
+        dimensions: [{ name: 'pagePath' }],
+        orderBys: [{ metric: { metricName: 'screenPageViews' }, desc: true }],
+        limit: 5000
+      }
+    });
+
+    // Aggregate by top-level category slug
+    const skipSegs = ['author','reader','newsletter','page','tag','search','amp'];
+    const catMap = {};
+    for (const row of (r.data.rows || [])) {
+      const p = row.dimensionValues[0].value;
+      const seg = p.split('/').filter(Boolean)[0];
+      if (!seg || seg.length < 2 || skipSegs.includes(seg)) continue;
+      if (!catMap[seg]) catMap[seg] = { pageViews: 0, sessions: 0, bounceRateSum: 0, durationSum: 0, articleCount: 0 };
+      catMap[seg].pageViews += parseInt(row.metricValues[0].value || 0);
+      catMap[seg].sessions += parseInt(row.metricValues[1].value || 0);
+      catMap[seg].bounceRateSum += parseFloat(row.metricValues[2].value || 0);
+      catMap[seg].durationSum += parseFloat(row.metricValues[3].value || 0);
+      catMap[seg].articleCount += 1;
+    }
+
+    const categories = Object.entries(catMap)
+      .filter(([, v]) => v.articleCount >= 1)
+      .map(([slug, v]) => {
+        const avgBounce = v.articleCount > 0 ? v.bounceRateSum / v.articleCount : 0;
+        const avgDuration = v.articleCount > 0 ? v.durationSum / v.articleCount : 0;
+        const viewsPerArticle = v.articleCount > 0 ? Math.round(v.pageViews / v.articleCount) : 0;
+        // Gap score: high bounce + low duration + low views/article = high gap (needs attention)
+        const gapScore = Math.round((avgBounce * 50) + (Math.max(0, 120 - avgDuration) / 120 * 30) + (Math.max(0, 500 - viewsPerArticle) / 500 * 20));
+        return {
+          slug,
+          displayName: slug.replace(/-/g, ' ').replace(/\b\w/g, c => c.toUpperCase()),
+          pageViews: v.pageViews,
+          sessions: v.sessions,
+          articleCount: v.articleCount,
+          viewsPerArticle,
+          avgBounceRate: parseFloat(avgBounce.toFixed(1)),
+          avgDuration: Math.round(avgDuration),
+          gapScore: Math.min(gapScore, 100)
+        };
+      })
+      .sort((a, b) => b.pageViews - a.pageViews)
+      .slice(0, 12);
+
+    cache.set(k, categories, 600);
+    res.json(categories);
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+// ── API: Article Search by title (all-time views) ──────────
+app.get('/api/article-search', requireProperty, async (req, res) => {
+  try {
+    const q = (req.query.q || '').trim();
+    if (!q) return res.json([]);
+    const r = await ga(req.user).properties.runReport({
+      property: PROP(req),
+      requestBody: {
+        dateRanges: [{ startDate: '2015-01-01', endDate: 'today' }],
+        metrics: [{ name: 'screenPageViews' }],
         dimensions: [{ name: 'pageTitle' }, { name: 'pagePath' }],
         dimensionFilter: {
           filter: {
@@ -551,17 +712,11 @@ app.get('/api/article-search', requireProperty, async (req, res) => {
         const t = row.dimensionValues[0].value;
         return t && t !== '(not set)' && t.trim() !== '';
       })
-      .map(row => {
-        const dur = parseInt(row.metricValues[2]?.value || 0);
-        return {
-          title: row.dimensionValues[0].value,
-          path: row.dimensionValues[1].value,
-          pageViews: parseInt(row.metricValues[0].value),
-          uniqueVisitors: parseInt(row.metricValues[1].value),
-          avgTime: `${Math.floor(dur / 60)}:${(dur % 60).toString().padStart(2, '0')}`,
-          bounceRate: parseFloat(row.metricValues[3]?.value || 0).toFixed(1) + '%'
-        };
-      });
+      .map(row => ({
+        title: row.dimensionValues[0].value,
+        path: row.dimensionValues[1].value,
+        pageViews: parseInt(row.metricValues[0].value)
+      }));
     res.json(rows);
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
