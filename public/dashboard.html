@@ -568,7 +568,7 @@
   </div>
   <div class="sources-grid">
     <div class="sources-chart-wrap">
-      <div class="pub-sub-label" style="margin-bottom:1.25rem">Session Share</div>
+      <div class="pub-sub-label" style="margin-bottom:1.25rem">Reader Share</div>
       <canvas id="sources-donut"></canvas>
     </div>
     <div class="sources-list-wrap">
@@ -1245,11 +1245,11 @@ async function fetchTrafficSources(range) {
     canvas.style.width = size + 'px'; canvas.style.height = size + 'px';
     ctx.scale(dpr, dpr);
     const cx = size / 2, cy = size / 2, outerR = size / 2 - 4, innerR = size / 2 - 32;
-    const total = data.reduce((s, d) => s + d.sessions, 0) || 1;
+    const total = data.reduce((s, d) => s + d.users, 0) || 1;
     let startAngle = -Math.PI / 2;
     ctx.clearRect(0, 0, size, size);
     data.forEach((d, i) => {
-      const slice = (d.sessions / total) * 2 * Math.PI;
+      const slice = (d.users / total) * 2 * Math.PI;
       ctx.beginPath();
       ctx.moveTo(cx, cy);
       ctx.arc(cx, cy, outerR, startAngle, startAngle + slice);
@@ -1270,7 +1270,7 @@ async function fetchTrafficSources(range) {
     ctx.fillText(total.toLocaleString('en-IN'), cx, cy - 9);
     ctx.font = `${Math.round(size * 0.06)}px IBM Plex Sans, sans-serif`;
     ctx.fillStyle = '#6b6b7a';
-    ctx.fillText('sessions', cx, cy + 11);
+    ctx.fillText('readers', cx, cy + 11);
 
     // Source list
     document.getElementById('sources-list').innerHTML = data.map((d, i) => `
@@ -1281,7 +1281,7 @@ async function fetchTrafficSources(range) {
           <div class="source-bar" style="width:${d.pct}%;background:${SRC_COLORS[i % SRC_COLORS.length]}"></div>
         </div>
         <div class="source-pct" style="color:${SRC_COLORS[i % SRC_COLORS.length]}">${d.pct}%</div>
-        <div class="source-sessions">${d.sessions.toLocaleString('en-IN')} sess.</div>
+        <div class="source-sessions">${d.users.toLocaleString('en-IN')} users</div>
       </div>`).join('');
 
     document.getElementById('src-updated').textContent = 'Updated ' + timeLabel();

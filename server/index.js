@@ -528,7 +528,7 @@ app.get('/api/traffic-sources', requireProperty, async (req, res) => {
         dateRanges: [{ startDate, endDate }],
         metrics: [{ name: 'sessions' }, { name: 'screenPageViews' }, { name: 'totalUsers' }],
         dimensions: [{ name: 'sessionDefaultChannelGroup' }],
-        orderBys: [{ metric: { metricName: 'sessions' }, desc: true }]
+        orderBys: [{ metric: { metricName: 'totalUsers' }, desc: true }]
       }
     });
 
@@ -544,8 +544,8 @@ app.get('/api/traffic-sources', requireProperty, async (req, res) => {
         users: parseInt(row.metricValues[2].value || 0)
       }));
 
-    const totalSessions = rows.reduce((s, r) => s + r.sessions, 0) || 1;
-    const result = rows.map(r => ({ ...r, pct: parseFloat(((r.sessions / totalSessions) * 100).toFixed(1)) }));
+    const totalUsers = rows.reduce((s, r) => s + r.users, 0) || 1;
+    const result = rows.map(r => ({ ...r, pct: parseFloat(((r.users / totalUsers) * 100).toFixed(1)) }));
     cache.set(k, result, 300);
     res.json(result);
   } catch (e) { res.status(500).json({ error: e.message }); }
