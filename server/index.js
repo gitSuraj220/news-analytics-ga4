@@ -190,7 +190,7 @@ app.get('/api/realtime', requireProperty, async (req, res) => {
 
     const d = {
       activeUsers: active,
-      bounceRate: parseFloat(month[0]?.value || 0).toFixed(1) + '%',
+      bounceRate: (parseFloat(month[0]?.value || 0) * 100).toFixed(1) + '%',
       avgDuration: `${Math.floor(dur / 60)}:${(dur % 60).toString().padStart(2, '0')}`,
       pageviewsPerMin: pvPerMin || Math.round(totalPv / mins),
       newPerMin: Math.round(parseInt(today[0]?.value || 0) / mins),
@@ -453,14 +453,17 @@ app.get('/api/banner-stats', requireProperty, async (req, res) => {
         metrics: [
           { name: 'bounceRate' },
           { name: 'totalUsers' },
-          { name: 'averageEngagementTime' }
+          { name: 'userEngagementDuration' },
+          { name: 'sessions' }
         ]
       }
     });
     const mv = r.data.rows?.[0]?.metricValues || [];
-    const dur = parseFloat(mv[2]?.value || 0);
+    const totalEngagement = parseFloat(mv[2]?.value || 0);
+    const sessions = parseInt(mv[3]?.value || 1) || 1;
+    const dur = totalEngagement / sessions;
     const d = {
-      bounceRate: parseFloat(mv[0]?.value || 0).toFixed(1) + '%',
+      bounceRate: (parseFloat(mv[0]?.value || 0) * 100).toFixed(1) + '%',
       uniqueVisitors: parseInt(mv[1]?.value || 0),
       avgEngagementTime: `${Math.floor(dur / 60)}:${Math.round(dur % 60).toString().padStart(2, '0')}`
     };
@@ -673,7 +676,7 @@ app.get('/api/content-gap', requireProperty, async (req, res) => {
           sessions: v.sessions,
           articleCount: v.articleCount,
           viewsPerArticle,
-          avgBounceRate: parseFloat(avgBounce.toFixed(1)),
+          avgBounceRate: parseFloat((avgBounce * 100).toFixed(1)),
           avgDuration: Math.round(avgDuration),
           gapScore: Math.min(gapScore, 100)
         };
