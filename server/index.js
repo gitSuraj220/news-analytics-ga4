@@ -144,9 +144,8 @@ app.get('/api/realtime', requireProperty, async (req, res) => {
     const a = ga(req.user);
 
     const now = new Date();
-    const startOfMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-01`;
 
-    const [rtTotal, rtMinutes, todayStats, monthStats] = await Promise.all([
+    const [rtTotal, rtMinutes, todayStats] = await Promise.all([
       a.properties.runRealtimeReport({
         property: PROP(req),
         requestBody: { metrics: [{ name: 'activeUsers' }] }
@@ -162,14 +161,7 @@ app.get('/api/realtime', requireProperty, async (req, res) => {
         property: PROP(req),
         requestBody: {
           dateRanges: [{ startDate: 'today', endDate: 'today' }],
-          metrics: [{ name: 'sessions' }, { name: 'screenPageViews' }]
-        }
-      }),
-      a.properties.runReport({
-        property: PROP(req),
-        requestBody: {
-          dateRanges: [{ startDate: startOfMonth, endDate: 'today' }],
-          metrics: [{ name: 'bounceRate' }, { name: 'averageSessionDuration' }]
+          metrics: [{ name: 'screenPageViews' }]
         }
       })
     ]);
@@ -182,18 +174,12 @@ app.get('/api/realtime', requireProperty, async (req, res) => {
     });
     const lastMinRow = (rtMinutes.data.rows || []).find(r => r.dimensionValues[0].value === '0');
     const pvPerMin = parseInt(lastMinRow?.metricValues?.[0]?.value || 0);
-    const today = todayStats.data.rows?.[0]?.metricValues || [];
-    const month = monthStats.data.rows?.[0]?.metricValues || [];
-    const totalPv = parseInt(today[1]?.value || 0);
+    const totalPv = parseInt(todayStats.data.rows?.[0]?.metricValues?.[0]?.value || 0);
     const mins = Math.max(now.getHours() * 60 + now.getMinutes(), 1);
-    const dur = parseInt(month[1]?.value || 0);
 
     const d = {
       activeUsers: active,
-      bounceRate: (parseFloat(month[0]?.value || 0) * 100).toFixed(1) + '%',
-      avgDuration: `${Math.floor(dur / 60)}:${(dur % 60).toString().padStart(2, '0')}`,
       pageviewsPerMin: pvPerMin || Math.round(totalPv / mins),
-      newPerMin: Math.round(parseInt(today[0]?.value || 0) / mins),
       sparkline
     };
     cache.set(k, d, 15);
@@ -452,7 +438,7 @@ app.get('/api/banner-stats', requireProperty, async (req, res) => {
         dateRanges: [{ startDate, endDate }],
         metrics: [
           { name: 'bounceRate' },
-          { name: 'totalUsers' },
+          { name: 'activeUsers' },
           { name: 'userEngagementDuration' },
           { name: 'sessions' }
         ]
