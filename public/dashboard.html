@@ -457,9 +457,9 @@
           <span style="font-family:'IBM Plex Mono',monospace;font-size:0.6rem;letter-spacing:1px;color:var(--muted);text-transform:uppercase">Period</span>
           <select id="banner-range-select" class="range-select banner-range" onchange="fetchBannerStats(this.value)">
             <option value="today">Today</option>
-            <option value="7days" selected>Last 7 Days</option>
+            <option value="7days">Last 7 Days</option>
             <option value="30days">Last 30 Days</option>
-            <option value="month">This Month</option>
+            <option value="month" selected>This Month</option>
           </select>
         </div>
         <div class="rt-period-stats">
@@ -801,7 +801,7 @@ async function fetchRealtime() {
 }
 
 // ── Fetch Banner Stats (period-controlled) ───────────────────
-let currentBannerRange = '7days';
+let currentBannerRange = 'month';
 async function fetchBannerStats(range) {
   if (range) currentBannerRange = range;
   try {
@@ -1442,8 +1442,8 @@ function startDashboard() {
   document.getElementById('cat-custom-wrap').style.display = 'none';
 
   // Reset banner stats
-  currentBannerRange = '7days';
-  document.getElementById('banner-range-select').value = '7days';
+  currentBannerRange = 'month';
+  document.getElementById('banner-range-select').value = 'month';
   document.getElementById('banner-bounce').textContent = '—';
   document.getElementById('banner-unique').textContent = '—';
   document.getElementById('banner-avg').textContent = '—';
@@ -1460,7 +1460,7 @@ function startDashboard() {
 
   // Initial load
   fetchRealtime();
-  fetchBannerStats('7days');
+  fetchBannerStats('month');
   fetchTopNews();
   fetchCategories();
   fetchGeoTraffic();
