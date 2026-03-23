@@ -438,7 +438,7 @@ app.get('/api/banner-stats', requireProperty, async (req, res) => {
         dateRanges: [{ startDate, endDate }],
         metrics: [
           { name: 'bounceRate' },
-          { name: 'activeUsers' },
+          { name: 'newUsers' },
           { name: 'userEngagementDuration' },
           { name: 'sessions' }
         ]
