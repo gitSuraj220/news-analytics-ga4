@@ -684,7 +684,7 @@ app.get('/api/article-search', requireProperty, async (req, res) => {
       metrics: [{ name: 'screenPageViews' }],
       dimensions: [{ name: 'pageTitle' }, { name: 'pagePath' }],
       orderBys: [{ metric: { metricName: 'screenPageViews' }, desc: true }],
-      limit: 20
+      limit: 100
     };
     if (q) {
       requestBody.dimensionFilter = {
@@ -695,7 +695,7 @@ app.get('/api/article-search', requireProperty, async (req, res) => {
       };
     }
     const r = await ga(req.user).properties.runReport({ property: PROP(req), requestBody });
-    return (r.data.rows || [])
+    const allRows = (r.data.rows || [])
       .filter(row => {
         const t = row.dimensionValues[0].value;
         return t && t !== '(not set)' && t.trim() !== '';
@@ -705,6 +705,16 @@ app.get('/api/article-search', requireProperty, async (req, res) => {
         path: row.dimensionValues[1].value,
         pageViews: parseInt(row.metricValues[0].value)
       }));
+    // Deduplicate by normalized title — keep only the URL with the most views per title
+    // Normalizes unicode + collapses whitespace to catch visually identical but byte-different titles
+    const normKey = t => t.normalize('NFC').trim().replace(/\s+/g, ' ');
+    const titleMap = new Map();
+    for (const row of allRows) {
+      const key = normKey(row.title);
+      const existing = titleMap.get(key);
+      if (!existing || row.pageViews > existing.pageViews) titleMap.set(key, row);
+    }
+    return [...titleMap.values()].sort((a, b) => b.pageViews - a.pageViews).slice(0, 20);
   };
   try {
     try {
