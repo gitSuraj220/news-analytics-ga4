@@ -290,39 +290,36 @@ app.get('/api/bottom-news', requireProperty, async (req, res) => {
       const r = await ga(req.user).properties.runReport({
         property: PROP(req),
         requestBody: {
-          // Range 0 = selected period, Range 1 = everything before it
+          // GA4 with 2 dateRanges returns one row per dateRange, with dateRange
+          // appended as an extra dimension: dimensionValues[2] = 'date_range_0' | 'date_range_1'
           dateRanges: [
             { startDate, endDate },
             { startDate: beforeStart, endDate: dayBefore(startDate) }
           ],
           metrics: [{ name: 'screenPageViews' }],
           dimensions: [{ name: 'pageTitle' }, { name: 'pagePath' }],
-          limit: 500
+          limit: 1000
         }
       });
-      return (r.data.rows || [])
-        .filter(row => {
-          const t = row.dimensionValues[0].value;
-          const p = row.dimensionValues[1].value;
-          const viewsInRange  = parseInt(row.metricValues[0].value || 0);
-          const viewsBefore   = parseInt(row.metricValues[1].value || 0);
-          // Keep only articles that:
-          // 1. Are real article URLs
-          // 2. Have at least 1 view in the selected range
-          // 3. Had 0 views before the range = published within the range
-          return t && t !== '(not set)' && t.trim() !== ''
-            && isArticlePath(p)
-            && viewsInRange > 0
-            && viewsBefore === 0;
-        })
-        .sort((a, b) => parseInt(a.metricValues[0].value) - parseInt(b.metricValues[0].value))
+
+      // Group by pagePath: accumulate views for range_0 (selected) and range_1 (before)
+      const map = new Map();
+      for (const row of (r.data.rows || [])) {
+        const title   = row.dimensionValues[0].value;
+        const path    = row.dimensionValues[1].value;
+        const drName  = row.dimensionValues[2]?.value; // 'date_range_0' or 'date_range_1'
+        const views   = parseInt(row.metricValues[0].value || 0);
+        if (!title || title === '(not set)' || !isArticlePath(path)) continue;
+        if (!map.has(path)) map.set(path, { title, path, range0: 0, range1: 0 });
+        if (drName === 'date_range_0') map.get(path).range0 += views;
+        else                           map.get(path).range1 += views;
+      }
+
+      return [...map.values()]
+        .filter(a => a.range0 > 0 && a.range1 === 0)  // published within range
+        .sort((a, b) => a.range0 - b.range0)           // lowest views first
         .slice(0, 10)
-        .map((row, i) => ({
-          rank: i + 1,
-          title: row.dimensionValues[0].value,
-          path: row.dimensionValues[1].value,
-          pageViews: parseInt(row.metricValues[0].value)
-        }));
+        .map((a, i) => ({ rank: i + 1, title: a.title, path: a.path, pageViews: a.range0 }));
     };
 
     let rows;
