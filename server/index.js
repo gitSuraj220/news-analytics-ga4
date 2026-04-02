@@ -705,12 +705,14 @@ app.get('/api/article-search', requireProperty, async (req, res) => {
         path: row.dimensionValues[1].value,
         pageViews: parseInt(row.metricValues[0].value)
       }));
-    // Deduplicate by title — keep only the URL with the most views per title
-    // (mismatched URLs caused by GA4 firing before <title> updates get filtered out)
+    // Deduplicate by normalized title — keep only the URL with the most views per title
+    // Normalizes unicode + collapses whitespace to catch visually identical but byte-different titles
+    const normKey = t => t.normalize('NFC').trim().replace(/\s+/g, ' ');
     const titleMap = new Map();
     for (const row of allRows) {
-      const existing = titleMap.get(row.title);
-      if (!existing || row.pageViews > existing.pageViews) titleMap.set(row.title, row);
+      const key = normKey(row.title);
+      const existing = titleMap.get(key);
+      if (!existing || row.pageViews > existing.pageViews) titleMap.set(key, row);
     }
     return [...titleMap.values()].sort((a, b) => b.pageViews - a.pageViews).slice(0, 20);
   };
