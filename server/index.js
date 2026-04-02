@@ -276,61 +276,53 @@ app.get('/api/bottom-news', requireProperty, async (req, res) => {
     else if (range === '30days') startDate = '30daysAgo';
     else if (range === 'month')  startDate = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}-01`;
 
-    // Compute the day before startDate for the "before" window
-    const dayBefore = (s) => {
-      let d;
-      if (s === 'today') { d = new Date(now); }
-      else if (/^\d+daysAgo$/.test(s)) { d = new Date(now); d.setDate(d.getDate() - parseInt(s)); }
-      else { d = new Date(s + 'T00:00:00Z'); }
-      d.setDate(d.getDate() - 1);
-      return d.toISOString().slice(0, 10);
+    // Convert startDate to YYYYMMDD for comparison with GA4 date dimension
+    const toAbsDate = (s) => {
+      if (s === 'today') return now;
+      if (/^\d+daysAgo$/.test(s)) { const d = new Date(now); d.setDate(d.getDate() - parseInt(s)); return d; }
+      return new Date(s + 'T00:00:00Z');
     };
+    const rangeStartYMD = toAbsDate(startDate).toISOString().slice(0, 10).replace(/-/g, '');
 
-    const runBottom = async (beforeStart) => {
-      // Call 1: Get lowest-viewed articles in the selected period
-      const r1 = await ga(req.user).properties.runReport({
+    // Use a wider lookback (90-180 days) to find each article's FIRST appearance date
+    const widerStart = (range === '30days' || range === 'month') ? '180daysAgo' : '90daysAgo';
+
+    const runBottom = async (lookback) => {
+      const r = await ga(req.user).properties.runReport({
         property: PROP(req),
         requestBody: {
-          dateRanges: [{ startDate, endDate }],
+          dateRanges: [{ startDate: lookback, endDate: 'today' }],
           metrics: [{ name: 'screenPageViews' }],
-          dimensions: [{ name: 'pageTitle' }, { name: 'pagePath' }],
-          orderBys: [{ metric: { metricName: 'screenPageViews' }, desc: false }],
-          limit: 500
-        }
-      });
-
-      // Call 2: Get all paths that had views BEFORE the range (= old articles)
-      const r2 = await ga(req.user).properties.runReport({
-        property: PROP(req),
-        requestBody: {
-          dateRanges: [{ startDate: beforeStart, endDate: dayBefore(startDate) }],
-          metrics: [{ name: 'screenPageViews' }],
-          dimensions: [{ name: 'pagePath' }],
+          dimensions: [{ name: 'date' }, { name: 'pageTitle' }, { name: 'pagePath' }],
           limit: 10000
         }
       });
-      const oldPaths = new Set((r2.data.rows || []).map(r => r.dimensionValues[0].value));
 
-      // Filter: keep only NEW articles (not seen before the range) with lowest views
-      return (r1.data.rows || [])
-        .filter(row => {
-          const t = row.dimensionValues[0].value;
-          const p = row.dimensionValues[1].value;
-          return t && t !== '(not set)' && t.trim() !== ''
-            && isArticlePath(p) && !oldPaths.has(p);
-        })
+      // Group by pagePath: find first appearance date + total views within selected range
+      const map = new Map();
+      for (const row of (r.data.rows || [])) {
+        const date  = row.dimensionValues[0].value;  // YYYYMMDD
+        const title = row.dimensionValues[1].value;
+        const path  = row.dimensionValues[2].value;
+        const views = parseInt(row.metricValues[0].value || 0);
+        if (!title || title === '(not set)' || !isArticlePath(path)) continue;
+        if (!map.has(path)) map.set(path, { title, path, firstDate: date, rangeViews: 0 });
+        const a = map.get(path);
+        if (date < a.firstDate) a.firstDate = date;
+        if (date >= rangeStartYMD) a.rangeViews += views;
+      }
+
+      // Keep only articles FIRST SEEN within the selected range → truly new articles
+      return [...map.values()]
+        .filter(a => a.firstDate >= rangeStartYMD && a.rangeViews > 0)
+        .sort((a, b) => a.rangeViews - b.rangeViews)
         .slice(0, 10)
-        .map((row, i) => ({
-          rank: i + 1,
-          title: row.dimensionValues[0].value,
-          path: row.dimensionValues[1].value,
-          pageViews: parseInt(row.metricValues[0].value)
-        }));
+        .map((a, i) => ({ rank: i + 1, title: a.title, path: a.path, pageViews: a.rangeViews }));
     };
 
     let rows;
     try {
-      rows = await runBottom('1800daysAgo');
+      rows = await runBottom(widerStart);
     } catch (e) {
       const m = e.message && e.message.match(/greater than (\d{4}-\d{2}-\d{2})/);
       if (m) {
