@@ -522,14 +522,16 @@
   <!-- Article Search -->
   <div class="sec-hd" style="flex-wrap:wrap;gap:0.75rem">
     <h2>Article Search</h2>
-    <span class="tag tag-teal">All-Time Views</span>
+    <span class="tag tag-teal" id="article-search-tag">All-Time Top 20</span>
   </div>
   <div class="search-box">
     <div class="search-input-row">
       <input type="text" id="article-search-input" class="search-input" placeholder="Type article title or keyword…" onkeydown="if(event.key==='Enter') searchArticle()">
       <button class="search-btn" id="article-search-btn" onclick="searchArticle()">SEARCH</button>
     </div>
-    <div class="search-results" id="search-results"></div>
+    <div class="search-results" id="search-results" style="display:block">
+      <div class="search-empty">⬤ LOADING TOP ARTICLES...</div>
+    </div>
   </div>
 
   <!-- Dynamic Category Columns -->
@@ -1177,9 +1179,48 @@ function extractDateFromPath(path) {
   return d ? `${d} ${mon} ${y}` : `${mon} ${y}`;
 }
 
+function renderArticleResults(data) {
+  const resultsEl = document.getElementById('search-results');
+  if (!data.length) {
+    resultsEl.innerHTML = '<div class="search-empty">No articles found.</div>';
+    return;
+  }
+  resultsEl.innerHTML = data.map(a => {
+    const pubDate = extractDateFromPath(a.path);
+    return `
+    <div class="search-result-row">
+      <div style="flex:1;min-width:0">
+        <div class="sr-title">${a.title}</div>
+        <div class="sr-path">${a.path}${pubDate ? ` <span style="color:var(--accent3);margin-left:8px">📅 ${pubDate}</span>` : ''}</div>
+      </div>
+      <div class="sr-stats">
+        <div class="sr-stat">
+          <div class="sr-val" style="color:var(--accent)">${(a.pageViews||0).toLocaleString('en-IN')}</div>
+          <div class="sr-lbl">Total Views</div>
+        </div>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+async function fetchTopArticles() {
+  const resultsEl = document.getElementById('search-results');
+  resultsEl.style.display = 'block';
+  resultsEl.innerHTML = '<div class="search-empty">⬤ LOADING TOP ARTICLES...</div>';
+  try {
+    const data = await fetch('/api/article-search').then(r => r.json());
+    if (data.error) throw new Error(data.error);
+    document.getElementById('article-search-tag').textContent = 'All-Time Top 20';
+    renderArticleResults(data);
+  } catch (e) {
+    resultsEl.innerHTML = `<div class="search-empty" style="color:var(--accent)">Error: ${e.message}</div>`;
+    showError(e.message);
+  }
+}
+
 async function searchArticle() {
   const q = document.getElementById('article-search-input').value.trim();
-  if (!q) return;
+  if (!q) { fetchTopArticles(); return; }
   const btn = document.getElementById('article-search-btn');
   const resultsEl = document.getElementById('search-results');
 
@@ -1191,26 +1232,8 @@ async function searchArticle() {
   try {
     const data = await fetch(`/api/article-search?q=${encodeURIComponent(q)}`).then(r => r.json());
     if (data.error) throw new Error(data.error);
-    if (!data.length) {
-      resultsEl.innerHTML = '<div class="search-empty">No articles found matching that title.</div>';
-    } else {
-      resultsEl.innerHTML = data.map(a => {
-        const pubDate = extractDateFromPath(a.path);
-        return `
-        <div class="search-result-row">
-          <div style="flex:1;min-width:0">
-            <div class="sr-title">${a.title}</div>
-            <div class="sr-path">${a.path}${pubDate ? ` <span style="color:var(--accent3);margin-left:8px">📅 ${pubDate}</span>` : ''}</div>
-          </div>
-          <div class="sr-stats">
-            <div class="sr-stat">
-              <div class="sr-val" style="color:var(--accent)">${(a.pageViews||0).toLocaleString('en-IN')}</div>
-              <div class="sr-lbl">Total Views</div>
-            </div>
-          </div>
-        </div>`;
-      }).join('');
-    }
+    document.getElementById('article-search-tag').textContent = `Results for "${q}"`;
+    renderArticleResults(data);
   } catch (e) {
     resultsEl.innerHTML = `<div class="search-empty" style="color:var(--accent)">Error: ${e.message}</div>`;
     showError(e.message);
@@ -1447,6 +1470,8 @@ function startDashboard() {
   document.getElementById('banner-bounce').textContent = '—';
   document.getElementById('banner-unique').textContent = '—';
   document.getElementById('banner-avg').textContent = '—';
+  document.getElementById('article-search-input').value = '';
+  document.getElementById('article-search-tag').textContent = 'All-Time Top 20';
 
   // Reset new feature selectors
   document.getElementById('src-range-select').value = '7days';
@@ -1462,6 +1487,7 @@ function startDashboard() {
   fetchRealtime();
   fetchBannerStats('month');
   fetchTopNews();
+  fetchTopArticles();
   fetchCategories();
   fetchGeoTraffic();
   fetchTrafficSources('7days');

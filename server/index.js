@@ -677,26 +677,25 @@ app.get('/api/content-gap', requireProperty, async (req, res) => {
 
 // ── API: Article Search by title (all-time views) ──────────
 app.get('/api/article-search', requireProperty, async (req, res) => {
-  try {
+  const runSearch = async (startDate) => {
     const q = (req.query.q || '').trim();
-    if (!q) return res.json([]);
-    const r = await ga(req.user).properties.runReport({
-      property: PROP(req),
-      requestBody: {
-        dateRanges: [{ startDate: '2015-01-01', endDate: 'today' }],
-        metrics: [{ name: 'screenPageViews' }],
-        dimensions: [{ name: 'pageTitle' }, { name: 'pagePath' }],
-        dimensionFilter: {
-          filter: {
-            fieldName: 'pageTitle',
-            stringFilter: { matchType: 'CONTAINS', value: q, caseSensitive: false }
-          }
-        },
-        orderBys: [{ metric: { metricName: 'screenPageViews' }, desc: true }],
-        limit: 20
-      }
-    });
-    const rows = (r.data.rows || [])
+    const requestBody = {
+      dateRanges: [{ startDate, endDate: 'today' }],
+      metrics: [{ name: 'screenPageViews' }],
+      dimensions: [{ name: 'pageTitle' }, { name: 'pagePath' }],
+      orderBys: [{ metric: { metricName: 'screenPageViews' }, desc: true }],
+      limit: 20
+    };
+    if (q) {
+      requestBody.dimensionFilter = {
+        filter: {
+          fieldName: 'pageTitle',
+          stringFilter: { matchType: 'CONTAINS', value: q, caseSensitive: false }
+        }
+      };
+    }
+    const r = await ga(req.user).properties.runReport({ property: PROP(req), requestBody });
+    return (r.data.rows || [])
       .filter(row => {
         const t = row.dimensionValues[0].value;
         return t && t !== '(not set)' && t.trim() !== '';
@@ -706,7 +705,23 @@ app.get('/api/article-search', requireProperty, async (req, res) => {
         path: row.dimensionValues[1].value,
         pageViews: parseInt(row.metricValues[0].value)
       }));
-    res.json(rows);
+  };
+  try {
+    try {
+      res.json(await runSearch('2015-01-01'));
+    } catch (e) {
+      // GA4 tells us the property's actual earliest date — parse and retry
+      const m = e.message && e.message.match(/greater than (\d{4}-\d{2}-\d{2})/);
+      if (m) {
+        // GA4 requires strictly greater than the reported date, so add 1 day
+        const minDate = new Date(m[1]);
+        minDate.setDate(minDate.getDate() + 1);
+        const startDate = minDate.toISOString().slice(0, 10);
+        res.json(await runSearch(startDate));
+      } else {
+        throw e;
+      }
+    }
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
