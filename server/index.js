@@ -287,39 +287,45 @@ app.get('/api/bottom-news', requireProperty, async (req, res) => {
     };
 
     const runBottom = async (beforeStart) => {
-      const r = await ga(req.user).properties.runReport({
+      // Call 1: Get lowest-viewed articles in the selected period
+      const r1 = await ga(req.user).properties.runReport({
         property: PROP(req),
         requestBody: {
-          // GA4 with 2 dateRanges returns one row per dateRange, with dateRange
-          // appended as an extra dimension: dimensionValues[2] = 'date_range_0' | 'date_range_1'
-          dateRanges: [
-            { startDate, endDate },
-            { startDate: beforeStart, endDate: dayBefore(startDate) }
-          ],
+          dateRanges: [{ startDate, endDate }],
           metrics: [{ name: 'screenPageViews' }],
           dimensions: [{ name: 'pageTitle' }, { name: 'pagePath' }],
-          limit: 1000
+          orderBys: [{ metric: { metricName: 'screenPageViews' }, desc: false }],
+          limit: 500
         }
       });
 
-      // Group by pagePath: accumulate views for range_0 (selected) and range_1 (before)
-      const map = new Map();
-      for (const row of (r.data.rows || [])) {
-        const title   = row.dimensionValues[0].value;
-        const path    = row.dimensionValues[1].value;
-        const drName  = row.dimensionValues[2]?.value; // 'date_range_0' or 'date_range_1'
-        const views   = parseInt(row.metricValues[0].value || 0);
-        if (!title || title === '(not set)' || !isArticlePath(path)) continue;
-        if (!map.has(path)) map.set(path, { title, path, range0: 0, range1: 0 });
-        if (drName === 'date_range_0') map.get(path).range0 += views;
-        else                           map.get(path).range1 += views;
-      }
+      // Call 2: Get all paths that had views BEFORE the range (= old articles)
+      const r2 = await ga(req.user).properties.runReport({
+        property: PROP(req),
+        requestBody: {
+          dateRanges: [{ startDate: beforeStart, endDate: dayBefore(startDate) }],
+          metrics: [{ name: 'screenPageViews' }],
+          dimensions: [{ name: 'pagePath' }],
+          limit: 10000
+        }
+      });
+      const oldPaths = new Set((r2.data.rows || []).map(r => r.dimensionValues[0].value));
 
-      return [...map.values()]
-        .filter(a => a.range0 > 0 && a.range1 === 0)  // published within range
-        .sort((a, b) => a.range0 - b.range0)           // lowest views first
+      // Filter: keep only NEW articles (not seen before the range) with lowest views
+      return (r1.data.rows || [])
+        .filter(row => {
+          const t = row.dimensionValues[0].value;
+          const p = row.dimensionValues[1].value;
+          return t && t !== '(not set)' && t.trim() !== ''
+            && isArticlePath(p) && !oldPaths.has(p);
+        })
         .slice(0, 10)
-        .map((a, i) => ({ rank: i + 1, title: a.title, path: a.path, pageViews: a.range0 }));
+        .map((row, i) => ({
+          rank: i + 1,
+          title: row.dimensionValues[0].value,
+          path: row.dimensionValues[1].value,
+          pageViews: parseInt(row.metricValues[0].value)
+        }));
     };
 
     let rows;
