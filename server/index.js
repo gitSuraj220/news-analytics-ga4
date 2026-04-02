@@ -677,10 +677,10 @@ app.get('/api/content-gap', requireProperty, async (req, res) => {
 
 // ── API: Article Search by title (all-time views) ──────────
 app.get('/api/article-search', requireProperty, async (req, res) => {
-  try {
+  const runSearch = async (startDate) => {
     const q = (req.query.q || '').trim();
     const requestBody = {
-      dateRanges: [{ startDate: '2015-01-01', endDate: 'today' }],
+      dateRanges: [{ startDate, endDate: 'today' }],
       metrics: [{ name: 'screenPageViews' }],
       dimensions: [{ name: 'pageTitle' }, { name: 'pagePath' }],
       orderBys: [{ metric: { metricName: 'screenPageViews' }, desc: true }],
@@ -695,7 +695,7 @@ app.get('/api/article-search', requireProperty, async (req, res) => {
       };
     }
     const r = await ga(req.user).properties.runReport({ property: PROP(req), requestBody });
-    const rows = (r.data.rows || [])
+    return (r.data.rows || [])
       .filter(row => {
         const t = row.dimensionValues[0].value;
         return t && t !== '(not set)' && t.trim() !== '';
@@ -705,7 +705,19 @@ app.get('/api/article-search', requireProperty, async (req, res) => {
         path: row.dimensionValues[1].value,
         pageViews: parseInt(row.metricValues[0].value)
       }));
-    res.json(rows);
+  };
+  try {
+    try {
+      res.json(await runSearch('2015-01-01'));
+    } catch (e) {
+      // GA4 tells us the property's actual earliest date — parse and retry
+      const m = e.message && e.message.match(/greater than (\d{4}-\d{2}-\d{2})/);
+      if (m) {
+        res.json(await runSearch(m[1]));
+      } else {
+        throw e;
+      }
+    }
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
