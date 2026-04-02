@@ -679,23 +679,22 @@ app.get('/api/content-gap', requireProperty, async (req, res) => {
 app.get('/api/article-search', requireProperty, async (req, res) => {
   try {
     const q = (req.query.q || '').trim();
-    if (!q) return res.json([]);
-    const r = await ga(req.user).properties.runReport({
-      property: PROP(req),
-      requestBody: {
-        dateRanges: [{ startDate: '2015-01-01', endDate: 'today' }],
-        metrics: [{ name: 'screenPageViews' }],
-        dimensions: [{ name: 'pageTitle' }, { name: 'pagePath' }],
-        dimensionFilter: {
-          filter: {
-            fieldName: 'pageTitle',
-            stringFilter: { matchType: 'CONTAINS', value: q, caseSensitive: false }
-          }
-        },
-        orderBys: [{ metric: { metricName: 'screenPageViews' }, desc: true }],
-        limit: 20
-      }
-    });
+    const requestBody = {
+      dateRanges: [{ startDate: '2015-01-01', endDate: 'today' }],
+      metrics: [{ name: 'screenPageViews' }],
+      dimensions: [{ name: 'pageTitle' }, { name: 'pagePath' }],
+      orderBys: [{ metric: { metricName: 'screenPageViews' }, desc: true }],
+      limit: 20
+    };
+    if (q) {
+      requestBody.dimensionFilter = {
+        filter: {
+          fieldName: 'pageTitle',
+          stringFilter: { matchType: 'CONTAINS', value: q, caseSensitive: false }
+        }
+      };
+    }
+    const r = await ga(req.user).properties.runReport({ property: PROP(req), requestBody });
     const rows = (r.data.rows || [])
       .filter(row => {
         const t = row.dimensionValues[0].value;
