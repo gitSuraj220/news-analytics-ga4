@@ -519,6 +519,32 @@
     </table>
   </div>
 
+  <!-- Bottom 10 Stories -->
+  <div class="sec-hd" style="flex-wrap:wrap;gap:0.75rem">
+    <h2>Bottom 10 Stories</h2>
+    <select id="bottom-range-select" class="range-select" onchange="fetchBottomNews(this.value)">
+      <option value="today">Today</option>
+      <option value="7days" selected>Last 7 Days</option>
+      <option value="30days">Last 30 Days</option>
+      <option value="month">This Month</option>
+    </select>
+    <span class="last-updated" id="bottom-updated"></span>
+  </div>
+  <div class="news-table">
+    <table>
+      <thead>
+        <tr>
+          <th>#</th>
+          <th>Headline</th>
+          <th>Views</th>
+        </tr>
+      </thead>
+      <tbody id="bottom10-body">
+        <tr class="loading-row"><td colspan="3">⬤ LOADING...</td></tr>
+      </tbody>
+    </table>
+  </div>
+
   <!-- Article Search -->
   <div class="sec-hd" style="flex-wrap:wrap;gap:0.75rem">
     <h2>Article Search</h2>
@@ -884,6 +910,27 @@ async function fetchTopNews() {
   } catch (e) {
     showError(e.message);
     document.getElementById('top10-body').innerHTML = `<tr class="loading-row"><td colspan="4">Error: ${e.message}</td></tr>`;
+  }
+}
+
+// ── Fetch Bottom 10 News ─────────────────────────────────────
+async function fetchBottomNews(range) {
+  if (range) document.getElementById('bottom-range-select').value = range;
+  else range = document.getElementById('bottom-range-select').value;
+  try {
+    const data = await fetch(`/api/bottom-news?range=${range}`).then(r => r.json());
+    if (data.error) throw new Error(data.error);
+    const rows = data.map((n, i) => `
+      <tr>
+        <td class="rank-num">${i + 1}</td>
+        <td><div class="news-title">${n.title}</div></td>
+        <td class="views-cell">${(n.pageViews||0).toLocaleString('en-IN')}<br><span>views</span></td>
+      </tr>`).join('');
+    document.getElementById('bottom10-body').innerHTML = rows || '<tr class="loading-row"><td colspan="3">No data available</td></tr>';
+    document.getElementById('bottom-updated').textContent = 'Updated ' + timeLabel();
+  } catch (e) {
+    showError(e.message);
+    document.getElementById('bottom10-body').innerHTML = `<tr class="loading-row"><td colspan="3">Error: ${e.message}</td></tr>`;
   }
 }
 
@@ -1472,6 +1519,8 @@ function startDashboard() {
   document.getElementById('banner-avg').textContent = '—';
   document.getElementById('article-search-input').value = '';
   document.getElementById('article-search-tag').textContent = 'All-Time Top 20';
+  document.getElementById('bottom10-body').innerHTML = '<tr class="loading-row"><td colspan="3">⬤ LOADING...</td></tr>';
+  document.getElementById('bottom-range-select').value = '7days';
 
   // Reset new feature selectors
   document.getElementById('src-range-select').value = '7days';
@@ -1488,6 +1537,7 @@ function startDashboard() {
   fetchBannerStats('month');
   fetchTopNews();
   fetchTopArticles();
+  fetchBottomNews();
   fetchCategories();
   fetchGeoTraffic();
   fetchTrafficSources('7days');

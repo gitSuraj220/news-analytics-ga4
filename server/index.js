@@ -42,6 +42,9 @@ passport.deserializeUser((u, done) => done(null, u));
 
 const requireAuth = (req, res, next) => req.isAuthenticated() ? next() : res.status(401).json({ error: 'Not authenticated' });
 
+// Returns true only for article URLs (have a numeric ID in path)
+const isArticlePath = p => /(-\d{5,}|\/n\d{5,})/.test(p);
+
 // Requires both auth AND a selected property
 const requireProperty = (req, res, next) => {
   if (!req.isAuthenticated()) return res.status(401).json({ error: 'Not authenticated' });
@@ -255,6 +258,46 @@ app.get('/api/top-news', requireProperty, async (req, res) => {
         }));
       cache.set(cacheKey, rows, 300);
     }
+    res.json(rows);
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+// ── API: Bottom 10 Stories ────────────────────────────────
+app.get('/api/bottom-news', requireProperty, async (req, res) => {
+  try {
+    const range = req.query.range || '7days';
+    const k = CK(req, `bottom10_${range}`);
+    if (cache.has(k)) return res.json(cache.get(k));
+    const now = new Date();
+    let startDate = '7daysAgo', endDate = 'today';
+    if (range === 'today')       startDate = 'today';
+    else if (range === '7days')  startDate = '7daysAgo';
+    else if (range === '30days') startDate = '30daysAgo';
+    else if (range === 'month')  startDate = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}-01`;
+    const r = await ga(req.user).properties.runReport({
+      property: PROP(req),
+      requestBody: {
+        dateRanges: [{ startDate, endDate }],
+        metrics: [{ name: 'screenPageViews' }],
+        dimensions: [{ name: 'pageTitle' }, { name: 'pagePath' }],
+        orderBys: [{ metric: { metricName: 'screenPageViews' }, desc: false }],
+        limit: 500
+      }
+    });
+    const rows = (r.data.rows || [])
+      .filter(row => {
+        const t = row.dimensionValues[0].value;
+        const p = row.dimensionValues[1].value;
+        return t && t !== '(not set)' && t.trim() !== '' && isArticlePath(p);
+      })
+      .slice(0, 10)
+      .map((row, i) => ({
+        rank: i + 1,
+        title: row.dimensionValues[0].value,
+        path: row.dimensionValues[1].value,
+        pageViews: parseInt(row.metricValues[0].value)
+      }));
+    cache.set(k, rows, 300);
     res.json(rows);
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
@@ -698,7 +741,8 @@ app.get('/api/article-search', requireProperty, async (req, res) => {
     const allRows = (r.data.rows || [])
       .filter(row => {
         const t = row.dimensionValues[0].value;
-        return t && t !== '(not set)' && t.trim() !== '';
+        const p = row.dimensionValues[1].value;
+        return t && t !== '(not set)' && t.trim() !== '' && isArticlePath(p);
       })
       .map(row => ({
         title: row.dimensionValues[0].value,
