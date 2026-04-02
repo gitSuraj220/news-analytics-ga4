@@ -262,41 +262,83 @@ app.get('/api/top-news', requireProperty, async (req, res) => {
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
-// ── API: Bottom 10 Stories ────────────────────────────────
+// ── API: Bottom 10 Stories (published within selected range) ──
 app.get('/api/bottom-news', requireProperty, async (req, res) => {
   try {
     const range = req.query.range || '7days';
     const k = CK(req, `bottom10_${range}`);
     if (cache.has(k)) return res.json(cache.get(k));
+
     const now = new Date();
     let startDate = '7daysAgo', endDate = 'today';
     if (range === 'today')       startDate = 'today';
     else if (range === '7days')  startDate = '7daysAgo';
     else if (range === '30days') startDate = '30daysAgo';
     else if (range === 'month')  startDate = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}-01`;
-    const r = await ga(req.user).properties.runReport({
-      property: PROP(req),
-      requestBody: {
-        dateRanges: [{ startDate, endDate }],
-        metrics: [{ name: 'screenPageViews' }],
-        dimensions: [{ name: 'pageTitle' }, { name: 'pagePath' }],
-        orderBys: [{ metric: { metricName: 'screenPageViews' }, desc: false }],
-        limit: 500
+
+    // Compute the day before startDate for the "before" window
+    const dayBefore = (s) => {
+      let d;
+      if (s === 'today') { d = new Date(now); }
+      else if (/^\d+daysAgo$/.test(s)) { d = new Date(now); d.setDate(d.getDate() - parseInt(s)); }
+      else { d = new Date(s + 'T00:00:00Z'); }
+      d.setDate(d.getDate() - 1);
+      return d.toISOString().slice(0, 10);
+    };
+
+    const runBottom = async (beforeStart) => {
+      const r = await ga(req.user).properties.runReport({
+        property: PROP(req),
+        requestBody: {
+          // Range 0 = selected period, Range 1 = everything before it
+          dateRanges: [
+            { startDate, endDate },
+            { startDate: beforeStart, endDate: dayBefore(startDate) }
+          ],
+          metrics: [{ name: 'screenPageViews' }],
+          dimensions: [{ name: 'pageTitle' }, { name: 'pagePath' }],
+          limit: 500
+        }
+      });
+      return (r.data.rows || [])
+        .filter(row => {
+          const t = row.dimensionValues[0].value;
+          const p = row.dimensionValues[1].value;
+          const viewsInRange  = parseInt(row.metricValues[0].value || 0);
+          const viewsBefore   = parseInt(row.metricValues[1].value || 0);
+          // Keep only articles that:
+          // 1. Are real article URLs
+          // 2. Have at least 1 view in the selected range
+          // 3. Had 0 views before the range = published within the range
+          return t && t !== '(not set)' && t.trim() !== ''
+            && isArticlePath(p)
+            && viewsInRange > 0
+            && viewsBefore === 0;
+        })
+        .sort((a, b) => parseInt(a.metricValues[0].value) - parseInt(b.metricValues[0].value))
+        .slice(0, 10)
+        .map((row, i) => ({
+          rank: i + 1,
+          title: row.dimensionValues[0].value,
+          path: row.dimensionValues[1].value,
+          pageViews: parseInt(row.metricValues[0].value)
+        }));
+    };
+
+    let rows;
+    try {
+      rows = await runBottom('1800daysAgo');
+    } catch (e) {
+      const m = e.message && e.message.match(/greater than (\d{4}-\d{2}-\d{2})/);
+      if (m) {
+        const minDate = new Date(m[1]);
+        minDate.setDate(minDate.getDate() + 1);
+        rows = await runBottom(minDate.toISOString().slice(0, 10));
+      } else {
+        throw e;
       }
-    });
-    const rows = (r.data.rows || [])
-      .filter(row => {
-        const t = row.dimensionValues[0].value;
-        const p = row.dimensionValues[1].value;
-        return t && t !== '(not set)' && t.trim() !== '' && isArticlePath(p);
-      })
-      .slice(0, 10)
-      .map((row, i) => ({
-        rank: i + 1,
-        title: row.dimensionValues[0].value,
-        path: row.dimensionValues[1].value,
-        pageViews: parseInt(row.metricValues[0].value)
-      }));
+    }
+
     cache.set(k, rows, 300);
     res.json(rows);
   } catch (e) { res.status(500).json({ error: e.message }); }
