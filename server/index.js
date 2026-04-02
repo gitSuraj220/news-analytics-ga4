@@ -713,7 +713,11 @@ app.get('/api/article-search', requireProperty, async (req, res) => {
       // GA4 tells us the property's actual earliest date — parse and retry
       const m = e.message && e.message.match(/greater than (\d{4}-\d{2}-\d{2})/);
       if (m) {
-        res.json(await runSearch(m[1]));
+        // GA4 requires strictly greater than the reported date, so add 1 day
+        const minDate = new Date(m[1]);
+        minDate.setDate(minDate.getDate() + 1);
+        const startDate = minDate.toISOString().slice(0, 10);
+        res.json(await runSearch(startDate));
       } else {
         throw e;
       }
