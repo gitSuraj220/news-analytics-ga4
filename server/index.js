@@ -276,48 +276,62 @@ app.get('/api/bottom-news', requireProperty, async (req, res) => {
     else if (range === '30days') startDate = '30daysAgo';
     else if (range === 'month')  startDate = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}-01`;
 
-    // Convert startDate to YYYYMMDD for comparison with GA4 date dimension
     const toAbsDate = (s) => {
-      if (s === 'today') return now;
+      if (s === 'today') return new Date(now);
       if (/^\d+daysAgo$/.test(s)) { const d = new Date(now); d.setDate(d.getDate() - parseInt(s)); return d; }
       return new Date(s + 'T00:00:00Z');
     };
     const rangeStartYMD = toAbsDate(startDate).toISOString().slice(0, 10).replace(/-/g, '');
-
-    // Use a wider lookback (90-180 days) to find each article's FIRST appearance date
     const widerStart = (range === '30days' || range === 'month') ? '180daysAgo' : '90daysAgo';
 
     const runBottom = async (lookback) => {
-      const r = await ga(req.user).properties.runReport({
+      // Call 1: Find first appearance date per article path (no titles — smaller rows, higher limit)
+      const r1 = await ga(req.user).properties.runReport({
         property: PROP(req),
         requestBody: {
           dateRanges: [{ startDate: lookback, endDate: 'today' }],
           metrics: [{ name: 'screenPageViews' }],
-          dimensions: [{ name: 'date' }, { name: 'pageTitle' }, { name: 'pagePath' }],
-          limit: 10000
+          dimensions: [{ name: 'date' }, { name: 'pagePath' }],
+          limit: 50000
+        }
+      });
+      const firstSeen = new Map();
+      for (const row of (r1.data.rows || [])) {
+        const date = row.dimensionValues[0].value;  // YYYYMMDD
+        const path = row.dimensionValues[1].value;
+        if (!isArticlePath(path)) continue;
+        if (!firstSeen.has(path) || date < firstSeen.get(path)) firstSeen.set(path, date);
+      }
+      // Paths whose first GA4 appearance is within the selected range = newly published
+      const newPaths = new Set(
+        [...firstSeen.entries()].filter(([, d]) => d >= rangeStartYMD).map(([p]) => p)
+      );
+
+      // Call 2: Get ACCURATE view counts for the selected range (no date dimension = exact totals)
+      const r2 = await ga(req.user).properties.runReport({
+        property: PROP(req),
+        requestBody: {
+          dateRanges: [{ startDate, endDate }],
+          metrics: [{ name: 'screenPageViews' }],
+          dimensions: [{ name: 'pageTitle' }, { name: 'pagePath' }],
+          orderBys: [{ metric: { metricName: 'screenPageViews' }, desc: false }],
+          limit: 5000
         }
       });
 
-      // Group by pagePath: find first appearance date + total views within selected range
-      const map = new Map();
-      for (const row of (r.data.rows || [])) {
-        const date  = row.dimensionValues[0].value;  // YYYYMMDD
-        const title = row.dimensionValues[1].value;
-        const path  = row.dimensionValues[2].value;
-        const views = parseInt(row.metricValues[0].value || 0);
-        if (!title || title === '(not set)' || !isArticlePath(path)) continue;
-        if (!map.has(path)) map.set(path, { title, path, firstDate: date, rangeViews: 0 });
-        const a = map.get(path);
-        if (date < a.firstDate) a.firstDate = date;
-        if (date >= rangeStartYMD) a.rangeViews += views;
-      }
-
-      // Keep only articles FIRST SEEN within the selected range → truly new articles
-      return [...map.values()]
-        .filter(a => a.firstDate >= rangeStartYMD && a.rangeViews > 0)
-        .sort((a, b) => a.rangeViews - b.rangeViews)
+      return (r2.data.rows || [])
+        .filter(row => {
+          const t = row.dimensionValues[0].value;
+          const p = row.dimensionValues[1].value;
+          return t && t !== '(not set)' && t.trim() !== '' && newPaths.has(p);
+        })
         .slice(0, 10)
-        .map((a, i) => ({ rank: i + 1, title: a.title, path: a.path, pageViews: a.rangeViews }));
+        .map((row, i) => ({
+          rank: i + 1,
+          title: row.dimensionValues[0].value,
+          path: row.dimensionValues[1].value,
+          pageViews: parseInt(row.metricValues[0].value)
+        }));
     };
 
     let rows;
