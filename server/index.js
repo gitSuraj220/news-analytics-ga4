@@ -326,12 +326,18 @@ app.get('/api/bottom-news', requireProperty, async (req, res) => {
           return t && t !== '(not set)' && t.trim() !== '' && newPaths.has(p);
         })
         .slice(0, 10)
-        .map((row, i) => ({
-          rank: i + 1,
-          title: row.dimensionValues[0].value,
-          path: row.dimensionValues[1].value,
-          pageViews: parseInt(row.metricValues[0].value)
-        }));
+        .map((row, i) => {
+          const p = row.dimensionValues[1].value;
+          const d = firstSeen.get(p) || '';
+          const publishDate = d ? `${d.slice(0,4)}-${d.slice(4,6)}-${d.slice(6,8)}` : '';
+          return {
+            rank: i + 1,
+            title: row.dimensionValues[0].value,
+            path: p,
+            pageViews: parseInt(row.metricValues[0].value),
+            publishDate
+          };
+        });
     };
 
     let rows;
