@@ -345,6 +345,7 @@ app.get('/api/bottom-news', requireProperty, async (req, res) => {
       const titleMap = new Map();
       for (const entry of pathMap.values()) {
         const key = normTitle(entry.title);
+        const entryDate = firstSeen.get(entry.path) || '';
         if (titleMap.has(key)) {
           const ex = titleMap.get(key);
           ex.pageViews += entry.pageViews;
@@ -353,8 +354,12 @@ app.get('/api/bottom-news', requireProperty, async (req, res) => {
             ex.path = entry.path;
             ex.title = entry.title;
           }
+          // Keep the earliest first-seen date across all merged paths
+          if (entryDate && (!ex.firstSeen || entryDate < ex.firstSeen)) {
+            ex.firstSeen = entryDate;
+          }
         } else {
-          titleMap.set(key, { ...entry });
+          titleMap.set(key, { ...entry, firstSeen: entryDate });
         }
       }
 
@@ -362,7 +367,7 @@ app.get('/api/bottom-news', requireProperty, async (req, res) => {
         .sort((a, b) => a.pageViews - b.pageViews)
         .slice(0, 10)
         .map((entry, i) => {
-          const d = firstSeen.get(entry.path) || '';
+          const d = entry.firstSeen || '';
           const publishDate = d ? `${d.slice(0,4)}-${d.slice(4,6)}-${d.slice(6,8)}` : '';
           return {
             rank: i + 1,
