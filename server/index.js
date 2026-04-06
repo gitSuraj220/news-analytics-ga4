@@ -311,14 +311,14 @@ app.get('/api/bottom-news', requireProperty, async (req, res) => {
       );
 
       // Call 2: Get ACCURATE view counts for the selected range (no date dimension = exact totals)
+      // Use high limit to ensure we capture all title×path variants for new articles
       const r2 = await ga(req.user).properties.runReport({
         property: PROP(req),
         requestBody: {
           dateRanges: [{ startDate, endDate }],
           metrics: [{ name: 'screenPageViews' }],
           dimensions: [{ name: 'pageTitle' }, { name: 'pagePath' }],
-          orderBys: [{ metric: { metricName: 'screenPageViews' }, desc: false }],
-          limit: 5000
+          limit: 50000
         }
       });
 
@@ -340,7 +340,25 @@ app.get('/api/bottom-news', requireProperty, async (req, res) => {
         }
       }
 
-      return [...pathMap.values()]
+      // Second pass: deduplicate by normalized title to merge same article at different paths
+      const normTitle = t => t.normalize('NFC').trim().replace(/\s+/g, ' ');
+      const titleMap = new Map();
+      for (const entry of pathMap.values()) {
+        const key = normTitle(entry.title);
+        if (titleMap.has(key)) {
+          const ex = titleMap.get(key);
+          ex.pageViews += entry.pageViews;
+          if (entry.pageViews > ex.topViews) {
+            ex.topViews = entry.pageViews;
+            ex.path = entry.path;
+            ex.title = entry.title;
+          }
+        } else {
+          titleMap.set(key, { ...entry });
+        }
+      }
+
+      return [...titleMap.values()]
         .sort((a, b) => a.pageViews - b.pageViews)
         .slice(0, 10)
         .map((entry, i) => {
