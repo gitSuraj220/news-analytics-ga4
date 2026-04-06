@@ -45,6 +45,9 @@ const requireAuth = (req, res, next) => req.isAuthenticated() ? next() : res.sta
 // Returns true only for article URLs (have a numeric ID in path)
 const isArticlePath = p => /(-\d{5,}|\/n\d{5,})/.test(p);
 
+// Normalize a path: strip query string, fragment, and trailing slash
+const normPath = p => p.split('?')[0].split('#')[0].replace(/\/+$/, '') || '/';
+
 // Requires both auth AND a selected property
 const requireProperty = (req, res, next) => {
   if (!req.isAuthenticated()) return res.status(401).json({ error: 'Not authenticated' });
@@ -298,7 +301,7 @@ app.get('/api/bottom-news', requireProperty, async (req, res) => {
       const firstSeen = new Map();
       for (const row of (r1.data.rows || [])) {
         const date = row.dimensionValues[0].value;  // YYYYMMDD
-        const path = row.dimensionValues[1].value;
+        const path = normPath(row.dimensionValues[1].value);
         if (!isArticlePath(path)) continue;
         if (!firstSeen.has(path) || date < firstSeen.get(path)) firstSeen.set(path, date);
       }
@@ -319,12 +322,13 @@ app.get('/api/bottom-news', requireProperty, async (req, res) => {
         }
       });
 
-      // Deduplicate by path: GA4 may return multiple rows for the same article with slightly
-      // different titles (whitespace variants). Sum views and keep the title with most views.
+      // Deduplicate by normalized path: GA4 may return multiple rows for the same article with
+      // slightly different titles (whitespace variants) or path variants (query params, trailing
+      // slashes). Sum views and keep the title with most views.
       const pathMap = new Map();
       for (const row of (r2.data.rows || [])) {
         const t = row.dimensionValues[0].value;
-        const p = row.dimensionValues[1].value;
+        const p = normPath(row.dimensionValues[1].value);
         if (!t || t === '(not set)' || t.trim() === '' || !newPaths.has(p)) continue;
         const views = parseInt(row.metricValues[0].value);
         if (pathMap.has(p)) {
