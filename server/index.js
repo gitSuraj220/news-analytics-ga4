@@ -319,22 +319,34 @@ app.get('/api/bottom-news', requireProperty, async (req, res) => {
         }
       });
 
-      return (r2.data.rows || [])
-        .filter(row => {
-          const t = row.dimensionValues[0].value;
-          const p = row.dimensionValues[1].value;
-          return t && t !== '(not set)' && t.trim() !== '' && newPaths.has(p);
-        })
+      // Deduplicate by path: GA4 may return multiple rows for the same article with slightly
+      // different titles (whitespace variants). Sum views and keep the title with most views.
+      const pathMap = new Map();
+      for (const row of (r2.data.rows || [])) {
+        const t = row.dimensionValues[0].value;
+        const p = row.dimensionValues[1].value;
+        if (!t || t === '(not set)' || t.trim() === '' || !newPaths.has(p)) continue;
+        const views = parseInt(row.metricValues[0].value);
+        if (pathMap.has(p)) {
+          const entry = pathMap.get(p);
+          entry.pageViews += views;
+          if (views > entry.topViews) { entry.topViews = views; entry.title = t; }
+        } else {
+          pathMap.set(p, { title: t, path: p, pageViews: views, topViews: views });
+        }
+      }
+
+      return [...pathMap.values()]
+        .sort((a, b) => a.pageViews - b.pageViews)
         .slice(0, 10)
-        .map((row, i) => {
-          const p = row.dimensionValues[1].value;
-          const d = firstSeen.get(p) || '';
+        .map((entry, i) => {
+          const d = firstSeen.get(entry.path) || '';
           const publishDate = d ? `${d.slice(0,4)}-${d.slice(4,6)}-${d.slice(6,8)}` : '';
           return {
             rank: i + 1,
-            title: row.dimensionValues[0].value,
-            path: p,
-            pageViews: parseInt(row.metricValues[0].value),
+            title: entry.title,
+            path: entry.path,
+            pageViews: entry.pageViews,
             publishDate
           };
         });
