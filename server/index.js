@@ -818,14 +818,24 @@ app.get('/api/article-search', requireProperty, async (req, res) => {
         path: row.dimensionValues[1].value,
         pageViews: parseInt(row.metricValues[0].value)
       }));
-    // Deduplicate by normalized title — keep only the URL with the most views per title
+    // Deduplicate by normalized title — sum views across all variants (whitespace/encoding differences)
     // Normalizes unicode + collapses whitespace to catch visually identical but byte-different titles
     const normKey = t => t.normalize('NFC').trim().replace(/\s+/g, ' ');
     const titleMap = new Map();
     for (const row of allRows) {
       const key = normKey(row.title);
       const existing = titleMap.get(key);
-      if (!existing || row.pageViews > existing.pageViews) titleMap.set(key, row);
+      if (existing) {
+        existing.pageViews += row.pageViews;
+        // Keep path/title from the variant with the most views
+        if (row.pageViews > existing._topViews) {
+          existing._topViews = row.pageViews;
+          existing.path = row.path;
+          existing.title = row.title;
+        }
+      } else {
+        titleMap.set(key, { ...row, _topViews: row.pageViews });
+      }
     }
     return [...titleMap.values()].sort((a, b) => b.pageViews - a.pageViews).slice(0, 20);
   };
