@@ -302,7 +302,7 @@ app.get('/api/bottom-news', requireProperty, async (req, res) => {
           dateRanges: [{ startDate: '730daysAgo', endDate: preRangeEnd }],
           metrics: [{ name: 'screenPageViews' }],
           dimensions: [{ name: 'pagePath' }],
-          limit: 50000
+          limit: 250000  // GA4 API maximum — covers up to 250k unique article paths
         }
       });
       const preExistingPaths = new Set();
