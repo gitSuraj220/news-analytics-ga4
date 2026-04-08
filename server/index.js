@@ -284,30 +284,54 @@ app.get('/api/bottom-news', requireProperty, async (req, res) => {
       if (/^\d+daysAgo$/.test(s)) { const d = new Date(now); d.setDate(d.getDate() - parseInt(s)); return d; }
       return new Date(s + 'T00:00:00Z');
     };
-    const rangeStartYMD = toAbsDate(startDate).toISOString().slice(0, 10).replace(/-/g, '');
-    const widerStart = (range === '30days' || range === 'month') ? '180daysAgo' : '90daysAgo';
 
-    const runBottom = async (lookback) => {
-      // Call 1: Find first appearance date per article path (no titles — smaller rows, higher limit)
-      const r1 = await ga(req.user).properties.runReport({
+
+    const runBottom = async () => {
+      // Call 1a: Which article paths existed BEFORE the selected range?
+      // Using a long lookback (730 days) without the date dimension keeps rows to one-per-path,
+      // so 50 000 rows covers ~50 000 unique articles — enough for any news site.
+      // Articles found here are "old" and must be excluded from Bottom 10.
+      const rangeStartDate = toAbsDate(startDate);
+      const dayBefore = new Date(rangeStartDate);
+      dayBefore.setDate(dayBefore.getDate() - 1);
+      const preRangeEnd = dayBefore.toISOString().slice(0, 10);
+
+      const r1a = await ga(req.user).properties.runReport({
         property: PROP(req),
         requestBody: {
-          dateRanges: [{ startDate: lookback, endDate: 'today' }],
+          dateRanges: [{ startDate: '730daysAgo', endDate: preRangeEnd }],
+          metrics: [{ name: 'screenPageViews' }],
+          dimensions: [{ name: 'pagePath' }],
+          limit: 50000
+        }
+      });
+      const preExistingPaths = new Set();
+      for (const row of (r1a.data.rows || [])) {
+        const p = normPath(row.dimensionValues[0].value);
+        if (isArticlePath(p)) preExistingPaths.add(p);
+      }
+
+      // Call 1b: First appearance date within the selected range (used as display publish date).
+      // Only articles NOT in preExistingPaths are truly new.
+      const r1b = await ga(req.user).properties.runReport({
+        property: PROP(req),
+        requestBody: {
+          dateRanges: [{ startDate, endDate }],
           metrics: [{ name: 'screenPageViews' }],
           dimensions: [{ name: 'date' }, { name: 'pagePath' }],
           limit: 50000
         }
       });
       const firstSeen = new Map();
-      for (const row of (r1.data.rows || [])) {
+      for (const row of (r1b.data.rows || [])) {
         const date = row.dimensionValues[0].value;  // YYYYMMDD
         const path = normPath(row.dimensionValues[1].value);
         if (!isArticlePath(path)) continue;
         if (!firstSeen.has(path) || date < firstSeen.get(path)) firstSeen.set(path, date);
       }
-      // Paths whose first GA4 appearance is within the selected range = newly published
+      // Newly published = appeared in the selected range AND not seen in the 730-day pre-range window
       const newPaths = new Set(
-        [...firstSeen.entries()].filter(([, d]) => d >= rangeStartYMD).map(([p]) => p)
+        [...firstSeen.keys()].filter(p => !preExistingPaths.has(p))
       );
 
       // Call 2: Get ACCURATE view counts for the selected range (no date dimension = exact totals)
@@ -345,6 +369,7 @@ app.get('/api/bottom-news', requireProperty, async (req, res) => {
       const titleMap = new Map();
       for (const entry of pathMap.values()) {
         const key = normTitle(entry.title);
+        const entryDate = firstSeen.get(entry.path) || '';
         if (titleMap.has(key)) {
           const ex = titleMap.get(key);
           ex.pageViews += entry.pageViews;
@@ -353,8 +378,12 @@ app.get('/api/bottom-news', requireProperty, async (req, res) => {
             ex.path = entry.path;
             ex.title = entry.title;
           }
+          // Keep the earliest first-seen date across all merged paths
+          if (entryDate && (!ex.firstSeen || entryDate < ex.firstSeen)) {
+            ex.firstSeen = entryDate;
+          }
         } else {
-          titleMap.set(key, { ...entry });
+          titleMap.set(key, { ...entry, firstSeen: entryDate });
         }
       }
 
@@ -362,7 +391,7 @@ app.get('/api/bottom-news', requireProperty, async (req, res) => {
         .sort((a, b) => a.pageViews - b.pageViews)
         .slice(0, 10)
         .map((entry, i) => {
-          const d = firstSeen.get(entry.path) || '';
+          const d = entry.firstSeen || '';
           const publishDate = d ? `${d.slice(0,4)}-${d.slice(4,6)}-${d.slice(6,8)}` : '';
           return {
             rank: i + 1,
@@ -374,19 +403,7 @@ app.get('/api/bottom-news', requireProperty, async (req, res) => {
         });
     };
 
-    let rows;
-    try {
-      rows = await runBottom(widerStart);
-    } catch (e) {
-      const m = e.message && e.message.match(/greater than (\d{4}-\d{2}-\d{2})/);
-      if (m) {
-        const minDate = new Date(m[1]);
-        minDate.setDate(minDate.getDate() + 1);
-        rows = await runBottom(minDate.toISOString().slice(0, 10));
-      } else {
-        throw e;
-      }
-    }
+    const rows = await runBottom();
 
     cache.set(k, rows, 300);
     res.json(rows);
